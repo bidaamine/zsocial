@@ -1,0 +1,33 @@
+{
+  "name": "nexus-ai-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "NEXUS AI monorepo structure for NestJS, Next.js, Flutter, and Python AI services. Documentation-only skeleton generated from the NEXUS AI platform specification.",
+  "packageManager": "pnpm@9.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/platform-services/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "format": "prettier --write \"**/*.{md,json,yml,yaml}\"",
+    "docs:check": "echo \"Documentation-only skeleton: add markdown linting later\"",
+    "api:dev": "pnpm --filter @nexus/api dev",
+    "web:dev": "pnpm --filter @nexus/web dev",
+    "admin:dev": "pnpm --filter @nexus/admin dev",
+    "mobile:dev": "echo \"Run Flutter commands inside apps/mobile when Flutter project is initialized\"",
+    "ai:dev": "echo \"Run Python AI services individually when their pyproject files are added\""
+  },
+  "devDependencies": {
+    "turbo": "latest",
+    "prettier": "latest"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

@@ -1,0 +1,2392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS AI System Topology</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        :root {
+            --bg: #070a12;
+            --panel: rgba(15, 23, 42, 0.98);
+            --muted: #94a3b8;
+            --text: #e2e8f0;
+            --border: #1e293b;
+            --accent: #38bdf8;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+        #viz-container {
+            flex-grow: 1;
+            height: 100%;
+            position: relative;
+            background:
+                radial-gradient(circle at 18% 22%, rgba(56, 189, 248, 0.12), transparent 28%),
+                radial-gradient(circle at 75% 35%, rgba(168, 85, 247, 0.11), transparent 30%),
+                radial-gradient(circle at 55% 86%, rgba(34, 197, 94, 0.08), transparent 24%),
+                linear-gradient(135deg, #0f172a 0%, #070a12 60%, #020617 100%);
+        }
+        #side-panel {
+            width: 390px;
+            min-width: 390px;
+            height: 100%;
+            background: var(--panel);
+            border-left: 1px solid var(--border);
+            padding: 38px 30px;
+            backdrop-filter: blur(14px);
+            display: none;
+            flex-direction: column;
+            gap: 22px;
+            z-index: 100;
+            box-shadow: -14px 0 38px rgba(0,0,0,0.55);
+            overflow-y: auto;
+        }
+        .node {
+            cursor: pointer;
+            transition: opacity 0.25s ease;
+        }
+        .node rect {
+            stroke-width: 2px;
+            rx: 8;
+            ry: 8;
+            transition: stroke-width 0.25s ease, filter 0.25s ease;
+        }
+        .node.highlighted rect {
+            stroke-width: 4px;
+            filter: drop-shadow(0 0 13px currentColor);
+        }
+        .node text {
+            font-size: 11px;
+            font-weight: 700;
+            pointer-events: none;
+        }
+        .node .port {
+            font-size: 9px;
+            font-weight: 500;
+            fill: #cbd5e1;
+            opacity: 0.92;
+        }
+        .node .package-item {
+            font-size: 9px;
+            font-weight: 500;
+            fill: #cbd5e1;
+        }
+        .link {
+            fill: none;
+            stroke: #475569;
+            stroke-width: 1.2px;
+            stroke-opacity: 0.22;
+            marker-end: url(#arrowhead);
+            transition: stroke-opacity 0.25s ease, stroke-width 0.25s ease, stroke 0.25s ease, opacity 0.25s ease;
+        }
+        .link.package-dep {
+            stroke-dasharray: 4 4;
+            stroke-opacity: 0.12;
+        }
+        .link.highlighted {
+            stroke: var(--accent);
+            stroke-opacity: 1;
+            stroke-width: 2.6px;
+        }
+        .node.dimmed, .link.dimmed {
+            opacity: 0.08;
+        }
+        .layer-label {
+            font-size: 12px;
+            font-weight: 800;
+            fill: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            pointer-events: none;
+        }
+        .legend {
+            position: absolute;
+            bottom: 28px;
+            left: 28px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--border);
+            padding: 15px 16px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            z-index: 50;
+            width: 250px;
+            box-shadow: 0 10px 35px rgba(0,0,0,0.28);
+        }
+        .legend-title {
+            font-size: 11px;
+            font-weight: 800;
+            color: #f8fafc;
+            margin-bottom: 9px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 11px;
+            color: #cbd5e1;
+        }
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255,255,255,0.12);
+        }
+        .title {
+            position: absolute;
+            top: 28px;
+            left: 28px;
+            z-index: 50;
+            background: rgba(2, 6, 23, 0.42);
+            border: 1px solid rgba(30, 41, 59, 0.75);
+            border-radius: 14px;
+            padding: 16px 18px;
+            backdrop-filter: blur(10px);
+        }
+        .title h1 {
+            margin: 0;
+            font-size: 23px;
+            color: #f8fafc;
+            letter-spacing: -0.03em;
+        }
+        .title p {
+            margin: 6px 0 0;
+            font-size: 13px;
+            color: var(--muted);
+        }
+        .search {
+            position: absolute;
+            top: 28px;
+            right: 28px;
+            z-index: 55;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid var(--border);
+            padding: 10px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+        #search-input {
+            width: 260px;
+            border: 0;
+            outline: none;
+            color: #e2e8f0;
+            background: rgba(2, 6, 23, 0.75);
+            border: 1px solid #243447;
+            border-radius: 8px;
+            padding: 9px 10px;
+            font-size: 12px;
+        }
+        #reset-button {
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 9px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        #panel-title {
+            font-size: 20px;
+            font-weight: 900;
+            margin: 0;
+            color: #f8fafc;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 12px;
+            padding-right: 30px;
+        }
+        .panel-section-label {
+            font-size: 10px;
+            font-weight: 800;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.11em;
+            margin-bottom: 5px;
+        }
+        .panel-meta-value {
+            font-size: 13px;
+            color: #cbd5e1;
+            margin-bottom: 13px;
+        }
+        #panel-description {
+            font-size: 14px;
+            line-height: 1.62;
+            color: #e2e8f0;
+            margin-top: 8px;
+        }
+        #panel-links {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #cbd5e1;
+        }
+        .chip {
+            display: inline-flex;
+            border: 1px solid #26364a;
+            background: rgba(2, 6, 23, 0.7);
+            color: #cbd5e1;
+            padding: 5px 8px;
+            border-radius: 999px;
+            margin: 3px 4px 3px 0;
+            font-size: 11px;
+        }
+        #panel-close {
+            position: absolute;
+            top: 22px;
+            right: 24px;
+            cursor: pointer;
+            color: #64748b;
+            font-size: 26px;
+            transition: color 0.2s;
+        }
+        #panel-close:hover { color: #f8fafc; }
+        .stats {
+            position: absolute;
+            bottom: 28px;
+            right: 28px;
+            z-index: 50;
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 13px 15px;
+            color: #cbd5e1;
+            font-size: 11px;
+            backdrop-filter: blur(10px);
+        }
+        svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="viz-container">
+        <div class="title">
+            <h1>NEXUS AI Architectural Blueprint</h1>
+            <p>Interactive System Topology • Frontend → Gateways → Services → AI Plane → Data Layer</p>
+        </div>
+
+        <div class="search">
+            <input id="search-input" placeholder="Search a service, module, database..." />
+            <button id="reset-button">Reset</button>
+        </div>
+
+        <div class="legend">
+            <div class="legend-title">Roadmap Status</div>
+            <div class="legend-item"><div class="dot" style="background:#38bdf8;"></div> Foundation / Platform Layer</div>
+            <div class="legend-item"><div class="dot" style="background:#22c55e;"></div> Phase 1 MVP</div>
+            <div class="legend-item"><div class="dot" style="background:#f59e0b;"></div> Phase 2 Expansion</div>
+            <div class="legend-item"><div class="dot" style="background:#a855f7;"></div> Phase 3 Ecosystem</div>
+        </div>
+        <div class="stats" id="stats"></div>
+    </div>
+
+    <div id="side-panel">
+        <div id="panel-close">&times;</div>
+        <h2 id="panel-title">Service Name</h2>
+
+        <div>
+            <div class="panel-section-label">Layer</div>
+            <div id="panel-layer" class="panel-meta-value">-</div>
+
+            <div class="panel-section-label">Registry Port</div>
+            <div id="panel-port" class="panel-meta-value">-</div>
+
+            <div class="panel-section-label">Roadmap Status</div>
+            <div id="panel-status" class="panel-meta-value">-</div>
+        </div>
+
+        <div>
+            <div class="panel-section-label">Functional Description</div>
+            <div id="panel-description">Functional summary from the NEXUS architecture plan.</div>
+        </div>
+
+        <div>
+            <div class="panel-section-label">Direct Connections</div>
+            <div id="panel-links"></div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const nodesData = [
+                {
+                                "id": "nexus_web_app",
+                                "label": "Web App",
+                                "port": 3000,
+                                "status": "phase1",
+                                "layer": 0,
+                                "desc": "Next.js web application for personal users, families, professionals, and authenticated social/productivity experiences."
+                },
+                {
+                                "id": "nexus_admin_console",
+                                "label": "Admin Console",
+                                "port": 3001,
+                                "status": "phase1",
+                                "layer": 0,
+                                "desc": "Internal operations and platform administration interface for users, companies, moderation, audit, billing, feature flags, and health views."
+                },
+                {
+                                "id": "nexus_mobile_ios",
+                                "label": "iOS App",
+                                "port": "native",
+                                "status": "phase1",
+                                "layer": 0,
+                                "desc": "iOS mobile application for always-on personal AI, family dashboard, notifications, health integrations, and daily briefings."
+                },
+                {
+                                "id": "nexus_mobile_android",
+                                "label": "Android App",
+                                "port": "native",
+                                "status": "phase2",
+                                "layer": 0,
+                                "desc": "Android mobile application launched in Phase 2 to expand the addressable market and provide parity with iOS."
+                },
+                {
+                                "id": "nexus_ar_vr_client",
+                                "label": "AR/VR Client",
+                                "port": "spatial",
+                                "status": "phase3",
+                                "layer": 0,
+                                "desc": "Spatial computing client for immersive learning worlds, virtual offices, holographic companions, corporate training, and medical/education experiences."
+                },
+                {
+                                "id": "nexus_developer_portal",
+                                "label": "Developer Portal",
+                                "port": 3002,
+                                "status": "phase2",
+                                "layer": 0,
+                                "desc": "Developer portal and API ecosystem entrypoint for third-party integrations, marketplace agents, usage dashboards, and documentation."
+                },
+                {
+                                "id": "nexus_api_gateway",
+                                "label": "API Gateway",
+                                "port": 4000,
+                                "status": "foundation",
+                                "layer": 1,
+                                "desc": "External ingress for REST/GraphQL API calls. Handles authentication verification, rate limits, request validation, routing, and security boundaries."
+                },
+                {
+                                "id": "nexus_bff_gateway",
+                                "label": "BFF Gateway",
+                                "port": 4001,
+                                "status": "foundation",
+                                "layer": 1,
+                                "desc": "Backend-for-frontend gateway that aggregates screen-specific data for web, mobile, family dashboard, corporate command centre, and admin surfaces."
+                },
+                {
+                                "id": "nexus_realtime_gateway",
+                                "label": "Realtime Gateway",
+                                "port": 4002,
+                                "status": "foundation",
+                                "layer": 1,
+                                "desc": "WebSocket and push-stream gateway for live notifications, real-time AI briefings, family alerts, corporate alerts, and trip/live activity style updates."
+                },
+                {
+                                "id": "nexus_api_ecosystem_gateway",
+                                "label": "API Ecosystem Gateway",
+                                "port": 4003,
+                                "status": "phase2",
+                                "layer": 1,
+                                "desc": "Gateway for enterprise API tier, marketplace integrations, third-party applications, and controlled partner access."
+                },
+                {
+                                "id": "nexus_security_agent",
+                                "label": "Security Agent",
+                                "port": 4010,
+                                "status": "foundation",
+                                "layer": 1.25,
+                                "desc": "Dedicated trust and security runtime layer for zero-trust request inspection, threat detection, device/session trust, suspicious login detection, child-safety enforcement, health-data access protection, corporate tenant isolation, AI prompt-abuse detection, consent validation, and audit logging before traffic reaches backend or AI services."
+                },
+                {
+                                "id": "nexus_shared_packages",
+                                "label": "Shared Packages",
+                                "status": "foundation",
+                                "layer": 1.5,
+                                "type": "package_block",
+                                "packages": [
+                                                "shared_types",
+                                                "shared_auth",
+                                                "shared_config",
+                                                "shared_logging",
+                                                "shared_ui",
+                                                "api_client",
+                                                "validators",
+                                                "events",
+                                                "permissions"
+                                ],
+                                "desc": "Monorepo shared packages for contracts, authentication helpers, configuration, telemetry, UI components, validators, event schemas, and permission constants."
+                },
+                {
+                                "id": "nexus_identity_service",
+                                "label": "Identity Service",
+                                "port": 4100,
+                                "status": "phase1",
+                                "layer": 2,
+                                "desc": "Owns accounts, authentication, sessions, MFA, roles, organization membership, JWT issuing, and login/register flows for all clients."
+                },
+                {
+                                "id": "nexus_user_profile_service",
+                                "label": "User Profile Service",
+                                "port": 4101,
+                                "status": "phase1",
+                                "layer": 2,
+                                "desc": "Stores personal profiles, preferences, age group, accessibility settings, language settings, and profile graph links used across NEXUS."
+                },
+                {
+                                "id": "nexus_family_service",
+                                "label": "Family Service",
+                                "port": 4102,
+                                "status": "phase1",
+                                "layer": 2,
+                                "desc": "Manages family groups, household relationships, parent/child permissions, family member dashboards, and privacy boundaries."
+                },
+                {
+                                "id": "nexus_child_safety_service",
+                                "label": "Child Safety Service",
+                                "port": 4103,
+                                "status": "phase1",
+                                "layer": 2,
+                                "desc": "Enforces dynamic age-gating, child-safe content routing, behavioural safety signals, cyberbullying/grooming risk patterns, and parent alerts."
+                },
+                {
+                                "id": "nexus_consent_privacy_service",
+                                "label": "Consent & Privacy Service",
+                                "port": 4104,
+                                "status": "foundation",
+                                "layer": 2,
+                                "desc": "Records user consent, data-sharing preferences, access grants, data deletion requests, child-data restrictions, and policy checks before data use."
+                },
+                {
+                                "id": "nexus_notification_service",
+                                "label": "Notification Service",
+                                "port": 4105,
+                                "status": "foundation",
+                                "layer": 2,
+                                "desc": "Dispatches email, push, SMS, in-app messages, AI briefings, family alerts, corporate alerts, and crisis warnings."
+                },
+                {
+                                "id": "nexus_content_service",
+                                "label": "Content Service",
+                                "port": 4106,
+                                "status": "phase1",
+                                "layer": 2,
+                                "desc": "Manages social content, education content, corporate content, CMS pages, moderation states, translations, and destination/learning resources."
+                },
+                {
+                                "id": "nexus_media_file_service",
+                                "label": "Media/File Service",
+                                "port": 4107,
+                                "status": "foundation",
+                                "layer": 2,
+                                "desc": "Handles uploads, documents, images, audio/video, profile media, encrypted storage references, and media access policies."
+                },
+                {
+                                "id": "nexus_billing_service",
+                                "label": "Billing Service",
+                                "port": 4108,
+                                "status": "phase1",
+                                "layer": 2,
+                                "desc": "Manages personal subscriptions, family plans, corporate tiers, enterprise billing, marketplace commissions, and usage-based AI/API charges."
+                },
+                {
+                                "id": "nexus_audit_observability_service",
+                                "label": "Audit & Observability",
+                                "port": 4109,
+                                "status": "foundation",
+                                "layer": 2,
+                                "desc": "Collects immutable audit logs, AI action logs, request traces, health events, compliance evidence, alerts, and operational telemetry."
+                },
+                {
+                                "id": "nexus_health_service",
+                                "label": "Health Service",
+                                "port": 4200,
+                                "status": "phase1",
+                                "layer": 2.5,
+                                "desc": "Owns health profiles, wearable integrations, symptom triage records, wellness plans, medication schedules, senior monitoring, and health permissions."
+                },
+                {
+                                "id": "nexus_education_service",
+                                "label": "Education Service",
+                                "port": 4201,
+                                "status": "phase1",
+                                "layer": 2.5,
+                                "desc": "Owns learner profiles, curriculum sessions, tutor progress, assessments, cognitive fingerprinting, child learning progress, and adult upskilling paths."
+                },
+                {
+                                "id": "nexus_fitness_life_service",
+                                "label": "Fitness & Life Service",
+                                "port": 4202,
+                                "status": "phase1",
+                                "layer": 2.5,
+                                "desc": "Manages workouts, readiness, recovery, tasks, calendars, smart home actions, daily planning, schedule optimization, and life load balancing."
+                },
+                {
+                                "id": "nexus_personal_finance_service",
+                                "label": "Personal Finance Service",
+                                "port": 4203,
+                                "status": "phase2",
+                                "layer": 2.5,
+                                "desc": "Manages budgets, goals, cash-flow predictions, shared family finances, subscriptions, savings recommendations, and financial scenario models."
+                },
+                {
+                                "id": "nexus_social_relationship_service",
+                                "label": "Social Relationship Service",
+                                "port": 4204,
+                                "status": "phase1",
+                                "layer": 2.5,
+                                "desc": "Owns social graph, friends, communities, professional relationships, feeds, messaging metadata, relationship health, and social safety signals."
+                },
+                {
+                                "id": "nexus_corporate_account_service",
+                                "label": "Corporate Account Service",
+                                "port": 4300,
+                                "status": "phase1",
+                                "layer": 3,
+                                "desc": "Owns company profiles, organizations, departments, employees, seats, enterprise permissions, and corporate billing boundaries."
+                },
+                {
+                                "id": "nexus_branding_marketing_service",
+                                "label": "Branding & Marketing Service",
+                                "port": 4301,
+                                "status": "phase1",
+                                "layer": 3,
+                                "desc": "Manages brand identity assets, campaign briefs, content calendars, audience segments, campaign performance, brand consistency, and competitive intelligence feeds."
+                },
+                {
+                                "id": "nexus_hr_talent_service",
+                                "label": "HR & Talent Service",
+                                "port": 4302,
+                                "status": "phase1",
+                                "layer": 3,
+                                "desc": "Manages hiring pipelines, candidate profiles, explainable screening records, employee development plans, performance signals, flight risk data, and wellbeing indicators."
+                },
+                {
+                                "id": "nexus_business_growth_service",
+                                "label": "Business Growth Service",
+                                "port": 4303,
+                                "status": "phase2",
+                                "layer": 3,
+                                "desc": "Owns corporate financial forecasts, business health score inputs, lead/prospect data, partnership/investor matching records, and scenario planning."
+                },
+                {
+                                "id": "nexus_operations_command_service",
+                                "label": "Operations Command Service",
+                                "port": 4304,
+                                "status": "phase2",
+                                "layer": 3,
+                                "desc": "Owns operational health dashboards, project health, workforce productivity analytics, team communication intelligence, automated reports, and cognitive load signals."
+                },
+                {
+                                "id": "nexus_marketplace_service",
+                                "label": "AI Marketplace Service",
+                                "port": 4305,
+                                "status": "phase2",
+                                "layer": 3,
+                                "desc": "Manages third-party AI agents, listings, reviews, installation permissions, commissions, API usage, and developer marketplace economics."
+                },
+                {
+                                "id": "nexus_ai_gateway_service",
+                                "label": "AI Gateway Service",
+                                "port": 4700,
+                                "status": "foundation",
+                                "layer": 4,
+                                "desc": "Unified entrypoint for AI requests. Applies consent checks, policy routing, model guardrails, task classification, and sends requests to orchestrators or specialized agents."
+                },
+                {
+                                "id": "nexus_life_orchestrator_service",
+                                "label": "AI Life Orchestrator",
+                                "port": 4701,
+                                "status": "phase1",
+                                "layer": 4,
+                                "desc": "Central personal meta-agent. Observes, predicts, coordinates, resolves cross-domain conflicts, and acts across health, education, fitness, finance, social, and family contexts."
+                },
+                {
+                                "id": "nexus_corporate_orchestrator_service",
+                                "label": "Corporate AI Command",
+                                "port": 4702,
+                                "status": "phase2",
+                                "layer": 4,
+                                "desc": "Corporate equivalent of the Life Orchestrator, coordinating brand, HR, finance, operations, employee assistants, risk, and executive intelligence briefings."
+                },
+                {
+                                "id": "nexus_llm_router_service",
+                                "label": "LLM Router",
+                                "port": 4703,
+                                "status": "foundation",
+                                "layer": 4,
+                                "desc": "Classifies AI tasks by reasoning/generation/retrieval/multimodal need, latency, privacy sensitivity, cost envelope, and routes to the best model/provider/edge model."
+                },
+                {
+                                "id": "nexus_agent_coordinator_service",
+                                "label": "Multi-Agent Coordinator",
+                                "port": 4704,
+                                "status": "foundation",
+                                "layer": 4,
+                                "desc": "Coordinates specialized agents, tools, approvals, retries, background jobs, memory access, and cross-domain workflow execution."
+                },
+                {
+                                "id": "nexus_decision_engine_service",
+                                "label": "Decision Engine",
+                                "port": 4705,
+                                "status": "phase1",
+                                "layer": 4,
+                                "desc": "Ranks urgency, importance, emotional readiness, safety, permissions, and time horizon to decide what should be surfaced or executed."
+                },
+                {
+                                "id": "nexus_health_ai_service",
+                                "label": "Health Advisor AI",
+                                "port": 4800,
+                                "status": "phase1",
+                                "layer": 5,
+                                "desc": "Python AI service for symptom triage, health-risk profiling, wellness recommendations, mental health support, senior monitoring, and predictive pre-illness detection."
+                },
+                {
+                                "id": "nexus_education_ai_service",
+                                "label": "Education Intelligence AI",
+                                "port": 4801,
+                                "status": "phase1",
+                                "layer": 5,
+                                "desc": "Python AI service for adaptive curriculum, AI tutoring, assessments, simulations, learner profiles, and cognitive fingerprinting."
+                },
+                {
+                                "id": "nexus_fitness_ai_service",
+                                "label": "Fitness & Life AI",
+                                "port": 4802,
+                                "status": "phase1",
+                                "layer": 5,
+                                "desc": "Python AI service for workout planning, recovery intelligence, readiness score, task scheduling, calendar optimization, and life-load balancing."
+                },
+                {
+                                "id": "nexus_finance_business_growth_ai_service",
+                                "label": "Finance + Business Growth AI Engine",
+                                "port": 4803,
+                                "status": "phase2",
+                                "layer": 5,
+                                "desc": "Python AI service for personal financial modelling, cash-flow warnings, savings recommendations, business forecasts, scenarios, and plain-language explanations."
+                },
+                {
+                                "id": "nexus_family_hub_child_safety_ai_service",
+                                "label": "Family Hub + Child Safety AI",
+                                "port": 4804,
+                                "status": "phase1",
+                                "layer": 5,
+                                "desc": "Python AI service that models the family system, stress patterns, sibling conflict, parent-child communication, child wellbeing, and tailored family support."
+                },
+                {
+                                "id": "nexus_emotional_intelligence_service",
+                                "label": "Emotional Intelligence",
+                                "port": 4805,
+                                "status": "phase2",
+                                "layer": 5,
+                                "desc": "Python AI service that detects emotional state from text, timing, behaviour, optional voice/facial signals, and adapts UX, AI responses, and recommendations."
+                },
+                {
+                                "id": "nexus_digital_twin_service",
+                                "label": "Digital Twin Service",
+                                "port": 4806,
+                                "status": "phase2",
+                                "layer": 5,
+                                "desc": "Python AI service for personal and corporate digital twins, voice/style modelling, preference representation, meeting attendance, routine replies, and twin-to-twin interactions."
+                },
+                {
+                                "id": "nexus_memory_ai_service",
+                                "label": "Generational Memory AI",
+                                "port": 4807,
+                                "status": "phase3",
+                                "layer": 5,
+                                "desc": "Python AI service for short-term, episodic, semantic, lifelong, and family-shared memories that power long-term personalization and digital legacy."
+                },
+                {
+                                "id": "nexus_predictive_crisis_service",
+                                "label": "Predictive Crisis AI",
+                                "port": 4808,
+                                "status": "phase2",
+                                "layer": 5,
+                                "desc": "Python AI service for early warning patterns across health emergencies, financial risk, family/life disruptions, mental health deterioration, and business failure."
+                },
+                {
+                                "id": "nexus_collective_intelligence_service",
+                                "label": "Collective Intelligence",
+                                "port": 4809,
+                                "status": "phase3",
+                                "layer": 5,
+                                "desc": "Python AI service that turns anonymized, privacy-preserving aggregate patterns into improved recommendations for users, families, learners, and companies."
+                },
+                {
+                                "id": "nexus_branding_marketing_ai_service",
+                                "label": "Marketing Intelligence AI",
+                                "port": 4810,
+                                "status": "phase2",
+                                "layer": 5,
+                                "desc": "Python AI service for brand identity generation, campaign planning, audience intelligence, competitive radar, and predictive campaign performance modelling."
+                },
+                {
+                                "id": "nexus_hr_talent_ai_service",
+                                "label": "HR Talent AI",
+                                "port": 4811,
+                                "status": "phase2",
+                                "layer": 5,
+                                "desc": "Python AI service for talent sourcing, bias-mitigated screening, performance analysis, flight risk radar, employee wellbeing, and organizational health modelling."
+                },
+                {
+                                "id": "nexus_operations_ai_service",
+                                "label": "Operations AI",
+                                "port": 4812,
+                                "status": "phase2",
+                                "layer": 5,
+                                "desc": "Python AI service for project health, team productivity, reporting, workload alerts, communication intelligence, and organizational cognitive load monitoring."
+                },
+                {
+                                "id": "nexus_translator_cultural_ai_service",
+                                "label": "Translator + Culture AI",
+                                "port": 4813,
+                                "status": "phase3",
+                                "layer": 5,
+                                "desc": "Python AI service for real-time translation across languages with cultural context, emotional nuance, relationship dynamics, and tone transformation."
+                },
+                
+                {
+                                "id": "nexus_kafka_event_stream",
+                                "label": "Kafka Event Stream",
+                                "port": 5000,
+                                "status": "foundation",
+                                "layer": 6,
+                                "desc": "Ordered, replayable event stream for user actions, sensor readings, AI decisions, domain events, notifications, and audit signals."
+                },
+                {
+                                "id": "nexus_flink_stream_processor",
+                                "label": "Flink Stream Processor",
+                                "port": 5001,
+                                "status": "foundation",
+                                "layer": 6,
+                                "desc": "Real-time stream processor for emotional features, anomalous health signals, profile updates, AI triggers, recommendations, and low-latency derived features."
+                },
+                {
+                                "id": "nexus_feature_store",
+                                "label": "Feature Store",
+                                "port": 5002,
+                                "status": "foundation",
+                                "layer": 6,
+                                "desc": "Shared feature repository for AI scoring, predictive models, personalization, risk analysis, emotional trajectories, business health, and learning analytics."
+                },
+                {
+                                "id": "nexus_privacy_engine",
+                                "label": "Privacy Engine",
+                                "port": 5100,
+                                "status": "foundation",
+                                "layer": 6,
+                                "desc": "Consent enforcement, anonymization, differential privacy, data minimization, child-data handling, and privacy checks before analytics or AI training use."
+                },
+                {
+                                "id": "nexus_postgresql",
+                                "label": "PostgreSQL",
+                                "port": 5432,
+                                "status": "foundation",
+                                "layer": 7,
+                                "desc": "Transactional relational database for accounts, permissions, content, corporate records, billing, subscriptions, bookings, settings, and operational records."
+                },
+                {
+                                "id": "nexus_neo4j_graph_db",
+                                "label": "Neo4j Graph DB",
+                                "port": 7687,
+                                "status": "foundation",
+                                "layer": 7,
+                                "desc": "Graph database for social graph, family graph, company graph, professional connections, community relationships, and partnership matching."
+                },
+                {
+                                "id": "nexus_timeseries_db",
+                                "label": "Timescale/InfluxDB",
+                                "port": 5433,
+                                "status": "foundation",
+                                "layer": 7,
+                                "desc": "Time-series database for wearables, health metrics, HRV, sleep, activity, finance trends, app engagement, emotional timelines, and corporate signal history."
+                },
+                {
+                                "id": "nexus_vector_db",
+                                "label": "Vector DB",
+                                "port": 6333,
+                                "status": "foundation",
+                                "layer": 7,
+                                "desc": "Vector database for embeddings, semantic search, RAG, long-term memory retrieval, learning context, corporate knowledge, and Generational Memory."
+                },
+                {
+                                "id": "nexus_redis_cache",
+                                "label": "Redis Cache",
+                                "port": 6379,
+                                "status": "foundation",
+                                "layer": 7,
+                                "desc": "Cache and ephemeral state store for sessions, rate limits, realtime presence, queues, locks, notification fan-out, and short-lived AI context."
+                },
+                {
+                                "id": "nexus_object_storage",
+                                "label": "Object Storage",
+                                "port": 9000,
+                                "status": "foundation",
+                                "layer": 7,
+                                "desc": "Encrypted object storage for media, documents, exports, model artifacts, audit evidence, datasets, and generated reports."
+                },
+                {
+                                "id": "nexus_data_lake",
+                                "label": "Data Lake",
+                                "port": "S3/GCS",
+                                "status": "foundation",
+                                "layer": 7,
+                                "desc": "Raw and curated event lake for analytics, privacy-preserving AI training, population-level intelligence, and model improvement pipelines."
+                },
+                {
+                                "id": "nexus_data_warehouse",
+                                "label": "Warehouse/BI",
+                                "port": "BQ/Snowflake",
+                                "status": "foundation",
+                                "layer": 7,
+                                "desc": "Analytical warehouse for BI dashboards, corporate reporting, product analytics, financial reporting, and aggregated intelligence products."
+                }
+];
+
+            const linksData = [
+                {
+                                "source": "nexus_web_app",
+                                "target": "nexus_bff_gateway"
+                },
+                {
+                                "source": "nexus_web_app",
+                                "target": "nexus_api_gateway"
+                },
+                {
+                                "source": "nexus_web_app",
+                                "target": "nexus_realtime_gateway"
+                },
+                {
+                                "source": "nexus_admin_console",
+                                "target": "nexus_bff_gateway"
+                },
+                {
+                                "source": "nexus_admin_console",
+                                "target": "nexus_api_gateway"
+                },
+                {
+                                "source": "nexus_admin_console",
+                                "target": "nexus_realtime_gateway"
+                },
+                {
+                                "source": "nexus_mobile_ios",
+                                "target": "nexus_bff_gateway"
+                },
+                {
+                                "source": "nexus_mobile_ios",
+                                "target": "nexus_api_gateway"
+                },
+                {
+                                "source": "nexus_mobile_ios",
+                                "target": "nexus_realtime_gateway"
+                },
+                {
+                                "source": "nexus_mobile_android",
+                                "target": "nexus_bff_gateway"
+                },
+                {
+                                "source": "nexus_mobile_android",
+                                "target": "nexus_api_gateway"
+                },
+                {
+                                "source": "nexus_mobile_android",
+                                "target": "nexus_realtime_gateway"
+                },
+                {
+                                "source": "nexus_ar_vr_client",
+                                "target": "nexus_api_gateway"
+                },
+                {
+                                "source": "nexus_ar_vr_client",
+                                "target": "nexus_realtime_gateway"
+                },
+                {
+                                "source": "nexus_developer_portal",
+                                "target": "nexus_api_ecosystem_gateway"
+                },
+                {
+                                "source": "nexus_api_ecosystem_gateway",
+                                "target": "nexus_api_gateway"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_security_agent"
+                },
+                {
+                                "source": "nexus_bff_gateway",
+                                "target": "nexus_security_agent"
+                },
+                {
+                                "source": "nexus_realtime_gateway",
+                                "target": "nexus_security_agent"
+                },
+                {
+                                "source": "nexus_api_ecosystem_gateway",
+                                "target": "nexus_security_agent"
+                },
+                {
+                                "source": "nexus_security_agent",
+                                "target": "nexus_identity_service"
+                },
+                {
+                                "source": "nexus_security_agent",
+                                "target": "nexus_consent_privacy_service"
+                },
+                {
+                                "source": "nexus_security_agent",
+                                "target": "nexus_child_safety_service"
+                },
+                {
+                                "source": "nexus_security_agent",
+                                "target": "nexus_audit_observability_service"
+                },
+                {
+                                "source": "nexus_security_agent",
+                                "target": "nexus_ai_gateway_service"
+                },
+                {
+                                "source": "nexus_security_agent",
+                                "target": "nexus_health_service"
+                },
+                {
+                                "source": "nexus_security_agent",
+                                "target": "nexus_corporate_account_service"
+                },
+                {
+                                "source": "nexus_security_agent",
+                                "target": "nexus_billing_service"
+                },
+                {
+                                "source": "nexus_security_agent",
+                                "target": "nexus_privacy_engine"
+                },
+                {
+                                "source": "nexus_security_agent",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_identity_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_user_profile_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_family_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_child_safety_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_consent_privacy_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_notification_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_content_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_media_file_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_billing_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_audit_observability_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_health_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_education_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_fitness_life_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_personal_finance_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_social_relationship_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_corporate_account_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_branding_marketing_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_hr_talent_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_business_growth_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_operations_command_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_marketplace_service"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_ai_gateway_service"
+                },
+                {
+                                "source": "nexus_bff_gateway",
+                                "target": "nexus_user_profile_service"
+                },
+                {
+                                "source": "nexus_bff_gateway",
+                                "target": "nexus_family_service"
+                },
+                {
+                                "source": "nexus_bff_gateway",
+                                "target": "nexus_health_service"
+                },
+                {
+                                "source": "nexus_bff_gateway",
+                                "target": "nexus_education_service"
+                },
+                {
+                                "source": "nexus_bff_gateway",
+                                "target": "nexus_fitness_life_service"
+                },
+                {
+                                "source": "nexus_bff_gateway",
+                                "target": "nexus_social_relationship_service"
+                },
+                {
+                                "source": "nexus_bff_gateway",
+                                "target": "nexus_corporate_account_service"
+                },
+                {
+                                "source": "nexus_bff_gateway",
+                                "target": "nexus_operations_command_service"
+                },
+                {
+                                "source": "nexus_bff_gateway",
+                                "target": "nexus_notification_service"
+                },
+                {
+                                "source": "nexus_notification_service",
+                                "target": "nexus_realtime_gateway"
+                },
+                {
+                                "source": "nexus_social_relationship_service",
+                                "target": "nexus_realtime_gateway"
+                },
+                {
+                                "source": "nexus_child_safety_service",
+                                "target": "nexus_realtime_gateway"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_realtime_gateway"
+                },
+                {
+                                "source": "nexus_corporate_orchestrator_service",
+                                "target": "nexus_realtime_gateway"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_bff_gateway",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_realtime_gateway",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_api_ecosystem_gateway",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_identity_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_user_profile_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_family_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_child_safety_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_consent_privacy_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_notification_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_content_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_media_file_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_billing_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_audit_observability_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_health_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_education_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_fitness_life_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_personal_finance_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_social_relationship_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_corporate_account_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_branding_marketing_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_hr_talent_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_business_growth_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_operations_command_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_marketplace_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_ai_gateway_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_corporate_orchestrator_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_decision_engine_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_health_ai_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_education_ai_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_fitness_ai_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_finance_business_growth_ai_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_family_hub_child_safety_ai_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_emotional_intelligence_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_digital_twin_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_memory_ai_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_predictive_crisis_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_collective_intelligence_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_branding_marketing_ai_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_hr_talent_ai_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_operations_ai_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                {
+                                "source": "nexus_translator_cultural_ai_service",
+                                "target": "nexus_shared_packages",
+                                "type": "package_dep"
+                },
+                
+                {
+                                "source": "nexus_identity_service",
+                                "target": "nexus_consent_privacy_service"
+                },
+                {
+                                "source": "nexus_user_profile_service",
+                                "target": "nexus_consent_privacy_service"
+                },
+                {
+                                "source": "nexus_family_service",
+                                "target": "nexus_child_safety_service"
+                },
+                {
+                                "source": "nexus_family_service",
+                                "target": "nexus_user_profile_service"
+                },
+                {
+                                "source": "nexus_child_safety_service",
+                                "target": "nexus_content_service"
+                },
+                {
+                                "source": "nexus_billing_service",
+                                "target": "nexus_corporate_account_service"
+                },
+                {
+                                "source": "nexus_marketplace_service",
+                                "target": "nexus_developer_portal"
+                },
+                {
+                                "source": "nexus_marketplace_service",
+                                "target": "nexus_billing_service"
+                },
+                {
+                                "source": "nexus_audit_observability_service",
+                                "target": "nexus_privacy_engine"
+                },
+                {
+                                "source": "nexus_health_service",
+                                "target": "nexus_health_ai_service"
+                },
+                {
+                                "source": "nexus_education_service",
+                                "target": "nexus_education_ai_service"
+                },
+                {
+                                "source": "nexus_fitness_life_service",
+                                "target": "nexus_fitness_ai_service"
+                },
+                {
+                                "source": "nexus_personal_finance_service",
+                                "target": "nexus_finance_business_growth_ai_service"
+                },
+                {
+                                "source": "nexus_family_service",
+                                "target": "nexus_family_hub_child_safety_ai_service"
+                },
+                {
+                                "source": "nexus_child_safety_service",
+                                "target": "nexus_family_hub_child_safety_ai_service"
+                },
+                {
+                                "source": "nexus_social_relationship_service",
+                                "target": "nexus_emotional_intelligence_service"
+                },
+                {
+                                "source": "nexus_branding_marketing_service",
+                                "target": "nexus_branding_marketing_ai_service"
+                },
+                {
+                                "source": "nexus_hr_talent_service",
+                                "target": "nexus_hr_talent_ai_service"
+                },
+                {
+                                "source": "nexus_business_growth_service",
+                                "target": "nexus_finance_business_growth_ai_service"
+                },
+                {
+                                "source": "nexus_business_growth_service",
+                                "target": "nexus_branding_marketing_ai_service"
+                },
+                {
+                                "source": "nexus_operations_command_service",
+                                "target": "nexus_operations_ai_service"
+                },
+                {
+                                "source": "nexus_corporate_account_service",
+                                "target": "nexus_corporate_orchestrator_service"
+                },
+                {
+                                "source": "nexus_ai_gateway_service",
+                                "target": "nexus_life_orchestrator_service"
+                },
+                {
+                                "source": "nexus_ai_gateway_service",
+                                "target": "nexus_corporate_orchestrator_service"
+                },
+                {
+                                "source": "nexus_ai_gateway_service",
+                                "target": "nexus_llm_router_service"
+                },
+                {
+                                "source": "nexus_ai_gateway_service",
+                                "target": "nexus_agent_coordinator_service"
+                },
+                {
+                                "source": "nexus_ai_gateway_service",
+                                "target": "nexus_decision_engine_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_health_ai_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_health_ai_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_education_ai_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_education_ai_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_fitness_ai_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_fitness_ai_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_finance_business_growth_ai_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_finance_business_growth_ai_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_family_hub_child_safety_ai_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_family_hub_child_safety_ai_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_emotional_intelligence_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_emotional_intelligence_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_digital_twin_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_digital_twin_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_memory_ai_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_memory_ai_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_predictive_crisis_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_predictive_crisis_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_collective_intelligence_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_collective_intelligence_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_branding_marketing_ai_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_branding_marketing_ai_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_hr_talent_ai_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_hr_talent_ai_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_operations_ai_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_operations_ai_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_translator_cultural_ai_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_translator_cultural_ai_service"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_immersive_ai_service"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_immersive_ai_service"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_health_ai_service"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_education_ai_service"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_fitness_ai_service"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_finance_business_growth_ai_service"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_family_hub_child_safety_ai_service"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_emotional_intelligence_service"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_digital_twin_service"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_memory_ai_service"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_predictive_crisis_service"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_translator_cultural_ai_service"
+                },
+                {
+                                "source": "nexus_corporate_orchestrator_service",
+                                "target": "nexus_branding_marketing_ai_service"
+                },
+                {
+                                "source": "nexus_corporate_orchestrator_service",
+                                "target": "nexus_hr_talent_ai_service"
+                },
+                {
+                                "source": "nexus_corporate_orchestrator_service",
+                                "target": "nexus_operations_ai_service"
+                },
+                {
+                                "source": "nexus_corporate_orchestrator_service",
+                                "target": "nexus_finance_business_growth_ai_service"
+                },
+                {
+                                "source": "nexus_corporate_orchestrator_service",
+                                "target": "nexus_digital_twin_service"
+                },
+                {
+                                "source": "nexus_corporate_orchestrator_service",
+                                "target": "nexus_memory_ai_service"
+                },
+                {
+                                "source": "nexus_corporate_orchestrator_service",
+                                "target": "nexus_predictive_crisis_service"
+                },
+                {
+                                "source": "nexus_corporate_orchestrator_service",
+                                "target": "nexus_collective_intelligence_service"
+                },
+                {
+                                "source": "nexus_corporate_orchestrator_service",
+                                "target": "nexus_translator_cultural_ai_service"
+                },
+                {
+                                "source": "nexus_emotional_intelligence_service",
+                                "target": "nexus_health_ai_service"
+                },
+                {
+                                "source": "nexus_emotional_intelligence_service",
+                                "target": "nexus_education_ai_service"
+                },
+                {
+                                "source": "nexus_emotional_intelligence_service",
+                                "target": "nexus_fitness_ai_service"
+                },
+                {
+                                "source": "nexus_emotional_intelligence_service",
+                                "target": "nexus_family_hub_child_safety_ai_service"
+                },
+                {
+                                "source": "nexus_emotional_intelligence_service",
+                                "target": "nexus_decision_engine_service"
+                },
+                {
+                                "source": "nexus_memory_ai_service",
+                                "target": "nexus_life_orchestrator_service"
+                },
+                {
+                                "source": "nexus_memory_ai_service",
+                                "target": "nexus_corporate_orchestrator_service"
+                },
+                {
+                                "source": "nexus_memory_ai_service",
+                                "target": "nexus_digital_twin_service"
+                },
+                {
+                                "source": "nexus_memory_ai_service",
+                                "target": "nexus_predictive_crisis_service"
+                },
+                {
+                                "source": "nexus_memory_ai_service",
+                                "target": "nexus_education_ai_service"
+                },
+                {
+                                "source": "nexus_memory_ai_service",
+                                "target": "nexus_health_ai_service"
+                },
+                {
+                                "source": "nexus_collective_intelligence_service",
+                                "target": "nexus_health_ai_service"
+                },
+                {
+                                "source": "nexus_collective_intelligence_service",
+                                "target": "nexus_education_ai_service"
+                },
+                {
+                                "source": "nexus_collective_intelligence_service",
+                                "target": "nexus_hr_talent_ai_service"
+                },
+                {
+                                "source": "nexus_collective_intelligence_service",
+                                "target": "nexus_branding_marketing_ai_service"
+                },
+                {
+                                "source": "nexus_identity_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_user_profile_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_family_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_child_safety_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_consent_privacy_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_notification_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_content_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_media_file_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_billing_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_audit_observability_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_health_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_education_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_fitness_life_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_personal_finance_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_social_relationship_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_corporate_account_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_branding_marketing_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_hr_talent_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_business_growth_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_operations_command_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_marketplace_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_ai_gateway_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_corporate_orchestrator_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_llm_router_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_decision_engine_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_health_ai_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_education_ai_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_fitness_ai_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_finance_business_growth_ai_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_family_hub_child_safety_ai_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_emotional_intelligence_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_digital_twin_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_memory_ai_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_predictive_crisis_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_collective_intelligence_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_branding_marketing_ai_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_hr_talent_ai_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_operations_ai_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                {
+                                "source": "nexus_translator_cultural_ai_service",
+                                "target": "nexus_kafka_event_stream"
+                },
+                
+                {
+                                "source": "nexus_kafka_event_stream",
+                                "target": "nexus_flink_stream_processor"
+                },
+                {
+                                "source": "nexus_flink_stream_processor",
+                                "target": "nexus_feature_store"
+                },
+                {
+                                "source": "nexus_flink_stream_processor",
+                                "target": "nexus_privacy_engine"
+                },
+                {
+                                "source": "nexus_privacy_engine",
+                                "target": "nexus_data_lake"
+                },
+                {
+                                "source": "nexus_privacy_engine",
+                                "target": "nexus_data_warehouse"
+                },
+                {
+                                "source": "nexus_privacy_engine",
+                                "target": "nexus_collective_intelligence_service"
+                },
+                {
+                                "source": "nexus_identity_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_user_profile_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_family_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_child_safety_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_consent_privacy_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_notification_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_content_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_media_file_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_billing_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_corporate_account_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_branding_marketing_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_hr_talent_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_business_growth_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_operations_command_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_marketplace_service",
+                                "target": "nexus_postgresql"
+                },
+                {
+                                "source": "nexus_user_profile_service",
+                                "target": "nexus_neo4j_graph_db"
+                },
+                {
+                                "source": "nexus_family_service",
+                                "target": "nexus_neo4j_graph_db"
+                },
+                {
+                                "source": "nexus_social_relationship_service",
+                                "target": "nexus_neo4j_graph_db"
+                },
+                {
+                                "source": "nexus_corporate_account_service",
+                                "target": "nexus_neo4j_graph_db"
+                },
+                {
+                                "source": "nexus_hr_talent_service",
+                                "target": "nexus_neo4j_graph_db"
+                },
+                {
+                                "source": "nexus_business_growth_service",
+                                "target": "nexus_neo4j_graph_db"
+                },
+                {
+                                "source": "nexus_collective_intelligence_service",
+                                "target": "nexus_neo4j_graph_db"
+                },
+                {
+                                "source": "nexus_health_service",
+                                "target": "nexus_timeseries_db"
+                },
+                {
+                                "source": "nexus_fitness_life_service",
+                                "target": "nexus_timeseries_db"
+                },
+                {
+                                "source": "nexus_personal_finance_service",
+                                "target": "nexus_timeseries_db"
+                },
+                {
+                                "source": "nexus_operations_command_service",
+                                "target": "nexus_timeseries_db"
+                },
+                {
+                                "source": "nexus_emotional_intelligence_service",
+                                "target": "nexus_timeseries_db"
+                },
+                {
+                                "source": "nexus_predictive_crisis_service",
+                                "target": "nexus_timeseries_db"
+                },
+                {
+                                "source": "nexus_flink_stream_processor",
+                                "target": "nexus_timeseries_db"
+                },
+                {
+                                "source": "nexus_memory_ai_service",
+                                "target": "nexus_vector_db"
+                },
+                {
+                                "source": "nexus_digital_twin_service",
+                                "target": "nexus_vector_db"
+                },
+                {
+                                "source": "nexus_education_ai_service",
+                                "target": "nexus_vector_db"
+                },
+                {
+                                "source": "nexus_health_ai_service",
+                                "target": "nexus_vector_db"
+                },
+                {
+                                "source": "nexus_branding_marketing_ai_service",
+                                "target": "nexus_vector_db"
+                },
+                {
+                                "source": "nexus_translator_cultural_ai_service",
+                                "target": "nexus_vector_db"
+                },
+                {
+                                "source": "nexus_content_service",
+                                "target": "nexus_vector_db"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_redis_cache"
+                },
+                {
+                                "source": "nexus_bff_gateway",
+                                "target": "nexus_redis_cache"
+                },
+                {
+                                "source": "nexus_realtime_gateway",
+                                "target": "nexus_redis_cache"
+                },
+                {
+                                "source": "nexus_identity_service",
+                                "target": "nexus_redis_cache"
+                },
+                {
+                                "source": "nexus_notification_service",
+                                "target": "nexus_redis_cache"
+                },
+                {
+                                "source": "nexus_ai_gateway_service",
+                                "target": "nexus_redis_cache"
+                },
+                {
+                                "source": "nexus_life_orchestrator_service",
+                                "target": "nexus_redis_cache"
+                },
+                {
+                                "source": "nexus_agent_coordinator_service",
+                                "target": "nexus_redis_cache"
+                },
+                {
+                                "source": "nexus_media_file_service",
+                                "target": "nexus_object_storage"
+                },
+                {
+                                "source": "nexus_content_service",
+                                "target": "nexus_object_storage"
+                },
+                {
+                                "source": "nexus_audit_observability_service",
+                                "target": "nexus_object_storage"
+                },
+                {
+                                "source": "nexus_memory_ai_service",
+                                "target": "nexus_object_storage"
+                },
+                
+                {
+                                "source": "nexus_billing_service",
+                                "target": "nexus_data_warehouse"
+                },
+                {
+                                "source": "nexus_audit_observability_service",
+                                "target": "nexus_data_warehouse"
+                },
+                {
+                                "source": "nexus_business_growth_service",
+                                "target": "nexus_data_warehouse"
+                },
+                {
+                                "source": "nexus_operations_command_service",
+                                "target": "nexus_data_warehouse"
+                },
+                {
+                                "source": "nexus_collective_intelligence_service",
+                                "target": "nexus_data_warehouse"
+                }
+];
+
+            function initViz() {
+                const container = document.getElementById("viz-container");
+                const width = container.clientWidth;
+                const height = container.clientHeight || window.innerHeight;
+
+                const nodeWidth = 188;
+                const nodeHeight = 48;
+                const packageBlockHeight = 150;
+                const layerWidth = 318;
+                const verticalSpacing = 62;
+
+                document.getElementById("stats").textContent = `${nodesData.length} nodes • ${linksData.length} connections • click a node to inspect`;
+
+                const svg = d3.select("#viz-container").append("svg")
+                    .attr("width", "100%")
+                    .attr("height", "100%");
+
+                const defs = svg.append("defs");
+                defs.append("marker")
+                    .attr("id", "arrowhead")
+                    .attr("viewBox", "0 -5 10 10")
+                    .attr("refX", 10)
+                    .attr("refY", 0)
+                    .attr("orient", "auto")
+                    .attr("markerWidth", 6)
+                    .attr("markerHeight", 6)
+                    .append("path")
+                    .attr("d", "M 0,-5 L 10,0 L 0,5")
+                    .attr("fill", "#64748b");
+
+                const g = svg.append("g");
+                const nodes = nodesData.map(d => ({...d}));
+                const layerGroups = d3.group(nodes, d => d.layer);
+                let globalMinY = Infinity;
+
+                layerGroups.forEach((nodesInLayer, layer) => {
+                    const count = nodesInLayer.length;
+                    const totalH = count * verticalSpacing;
+                    const startY = Math.max(120, (height - totalH) / 2);
+                    if (startY < globalMinY) globalMinY = startY;
+
+                    nodesInLayer.forEach((n, i) => {
+                        n.x = 90 + layer * layerWidth;
+                        n.y = startY + i * verticalSpacing;
+                        n.width = nodeWidth;
+                        n.height = n.type === "package_block" ? packageBlockHeight : nodeHeight;
+                    });
+                });
+
+                const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+                const colors = {
+                    foundation: { bg: "#082f49", stroke: "#38bdf8", text: "#f0f9ff", label: "Foundation / Platform" },
+                    phase1: { bg: "#064e3b", stroke: "#22c55e", text: "#f0fdf4", label: "Phase 1 MVP" },
+                    phase2: { bg: "#451a03", stroke: "#f59e0b", text: "#fffbeb", label: "Phase 2 Expansion" },
+                    phase3: { bg: "#3b0764", stroke: "#a855f7", text: "#faf5ff", label: "Phase 3 Ecosystem" }
+                };
+
+                function curvePath(d) {
+                    const s = nodeMap.get(d.source);
+                    const t = nodeMap.get(d.target);
+                    if (!s || !t) return null;
+                    const x1 = s.x + s.width;
+                    const y1 = s.y + s.height / 2;
+                    const x2 = t.x;
+                    const y2 = t.y + t.height / 2;
+                    const midX = (x1 + x2) / 2;
+                    return `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`;
+                }
+
+                const linkLines = g.selectAll(".link")
+                    .data(linksData)
+                    .enter()
+                    .append("path")
+                    .attr("class", d => "link" + (d.type === "package_dep" ? " package-dep" : ""))
+                    .attr("d", curvePath);
+
+                const nodeEls = g.selectAll(".node")
+                    .data(nodes)
+                    .enter()
+                    .append("g")
+                    .attr("class", "node")
+                    .attr("transform", d => `translate(${d.x},${d.y})`)
+                    .on("click", (event, d) => {
+                        event.stopPropagation();
+                        showPanel(d);
+                        highlightService(d.id);
+                    });
+
+                nodeEls.append("rect")
+                    .attr("width", d => d.width)
+                    .attr("height", d => d.height)
+                    .attr("fill", d => colors[d.status].bg)
+                    .attr("stroke", d => colors[d.status].stroke);
+
+                nodeEls.append("text")
+                    .attr("x", 10)
+                    .attr("y", 20)
+                    .attr("fill", d => colors[d.status].text)
+                    .text(d => truncate(d.label || d.id.replace("nexus_", ""), 24));
+
+                nodeEls.each(function(d) {
+                    const el = d3.select(this);
+                    if (d.type === "package_block") {
+                        d.packages.forEach((pkg, i) => {
+                            el.append("text")
+                                .attr("class", "package-item")
+                                .attr("x", 15)
+                                .attr("y", 43 + i * 13)
+                                .text(`• ${pkg}`);
+                        });
+                    } else if (d.port) {
+                        el.append("text")
+                            .attr("class", "port")
+                            .attr("x", 10)
+                            .attr("y", 36)
+                            .text(`Port: ${d.port}`);
+                    }
+                });
+
+                const layerLabels = [
+                    ["Clients", 0],
+                    ["Edge Gateways", 1],
+                    ["Trust + Security", 1.25],
+                    ["Shared Foundation", 1.5],
+                    ["Core Services", 2],
+                    ["Personal Services", 2.5],
+                    ["Corporate Services", 3],
+                    ["AI Control Plane", 4],
+                    ["AI Intelligence Plane", 5],
+                    ["Streams + Privacy", 6],
+                    ["Databases", 7]
+                ];
+
+                layerLabels.forEach(([label, layer]) => {
+                    g.append("text")
+                        .attr("class", "layer-label")
+                        .attr("x", 90 + layer * layerWidth + nodeWidth / 2)
+                        .attr("y", globalMinY - 36)
+                        .attr("text-anchor", "middle")
+                        .text(label);
+                });
+
+                function truncate(str, max) {
+                    return str.length > max ? str.slice(0, max - 1) + "…" : str;
+                }
+
+                function getLayerName(l) {
+                    const map = {
+                        0: "Frontend / Client Apps",
+                        1: "Edge Gateway Layer",
+                        1.25: "Trust + Security Runtime Layer",
+                        1.5: "Shared Foundation Packages",
+                        2: "Core Backend Services",
+                        2.5: "Personal Domain Services",
+                        3: "Corporate Domain Services",
+                        4: "AI Control Plane",
+                        5: "Python AI Intelligence Plane",
+                        6: "Stream Processing + Privacy",
+                        7: "Database / Storage Layer"
+                    };
+                    return map[l] || "Unknown";
+                }
+
+                function showPanel(d) {
+                    const incoming = linksData.filter(l => l.target === d.id).map(l => l.source);
+                    const outgoing = linksData.filter(l => l.source === d.id).map(l => l.target);
+                    const direct = [...new Set([...incoming, ...outgoing])]
+                        .filter(id => id !== "nexus_shared_packages")
+                        .slice(0, 24);
+
+                    d3.select("#side-panel").style("display", "flex");
+                    d3.select("#panel-title").text((d.label || d.id).replace(/_/g, " ").toUpperCase());
+                    d3.select("#panel-layer").text(getLayerName(d.layer));
+                    d3.select("#panel-port").text(d.port || "N/A");
+                    d3.select("#panel-status")
+                        .text(colors[d.status].label)
+                        .style("color", colors[d.status].stroke);
+                    d3.select("#panel-description").text(d.desc);
+
+                    const linksEl = d3.select("#panel-links");
+                    linksEl.html("");
+                    if (direct.length === 0) {
+                        linksEl.append("div").text("No direct connections listed.");
+                    } else {
+                        direct.forEach(id => {
+                            const target = nodeMap.get(id);
+                            linksEl.append("span")
+                                .attr("class", "chip")
+                                .text(target ? (target.label || target.id) : id);
+                        });
+                    }
+                }
+
+                function highlightService(serviceId) {
+                    const relatedNodes = new Set([serviceId]);
+                    const relatedLinks = new Set();
+
+                    linksData.forEach((l, i) => {
+                        if (l.source === serviceId || l.target === serviceId) {
+                            relatedNodes.add(l.source);
+                            relatedNodes.add(l.target);
+                            relatedLinks.add(i);
+                        }
+                    });
+
+                    nodeEls
+                        .classed("dimmed", n => !relatedNodes.has(n.id))
+                        .classed("highlighted", n => n.id === serviceId);
+
+                    linkLines
+                        .classed("dimmed", (l, i) => !relatedLinks.has(i))
+                        .classed("highlighted", (l, i) => relatedLinks.has(i));
+                }
+
+                function resetHighlight() {
+                    nodeEls.classed("dimmed", false).classed("highlighted", false);
+                    linkLines.classed("dimmed", false).classed("highlighted", false);
+                    d3.select("#side-panel").style("display", "none");
+                }
+
+                function searchAndHighlight(term) {
+                    const q = term.trim().toLowerCase();
+                    if (!q) {
+                        nodeEls.classed("dimmed", false).classed("highlighted", false);
+                        linkLines.classed("dimmed", false).classed("highlighted", false);
+                        return;
+                    }
+                    const matches = new Set(
+                        nodes
+                            .filter(n => `${n.id} ${n.label || ""} ${n.desc || ""}`.toLowerCase().includes(q))
+                            .map(n => n.id)
+                    );
+                    nodeEls
+                        .classed("dimmed", n => !matches.has(n.id))
+                        .classed("highlighted", n => matches.has(n.id));
+                    linkLines.classed("dimmed", true).classed("highlighted", false);
+                }
+
+                d3.select("#panel-close").on("click", resetHighlight);
+                svg.on("click", resetHighlight);
+                d3.select("#reset-button").on("click", () => {
+                    document.getElementById("search-input").value = "";
+                    resetHighlight();
+                });
+                d3.select("#search-input").on("input", (event) => searchAndHighlight(event.target.value));
+
+                const zoom = d3.zoom()
+                    .scaleExtent([0.08, 2.5])
+                    .on("zoom", (event) => g.attr("transform", event.transform));
+                svg.call(zoom);
+
+                const contentWidth = 90 + 7 * layerWidth + nodeWidth + 260;
+                const initialScale = Math.min(0.62, (width - 80) / contentWidth);
+                svg.call(zoom.transform, d3.zoomIdentity.translate(46, 64).scale(initialScale));
+            }
+
+            if (typeof d3 !== "undefined") {
+                initViz();
+            } else {
+                window.addEventListener("load", () => {
+                    if (typeof d3 !== "undefined") initViz();
+                    else console.error("D3 failed to load.");
+                });
+            }
+        })();
+    </script>
+</body>
+</html>

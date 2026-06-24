@@ -1,0 +1,7 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "services/platform-services/*"
+
+# Python AI services are intentionally not listed as pnpm workspaces.
+# They should each receive their own Python project metadata when implementation starts.
