@@ -1,0 +1,1 @@
+{"version":3,"file":"zero-trust.guard.d.ts","sourceRoot":"","sources":["../src/zero-trust.guard.ts"],"names":[],"mappings":"AAAA,OAAO,EAAc,WAAW,EAAE,gBAAgB,EAAyB,MAAM,gBAAgB,CAAC;AAClG,OAAO,EAAE,UAAU,EAAE,MAAM,MAAM,CAAC;AAElC,qBACa,cAAe,YAAW,WAAW;IAChD,WAAW,CACT,OAAO,EAAE,gBAAgB,GACxB,OAAO,GAAG,OAAO,CAAC,OAAO,CAAC,GAAG,UAAU,CAAC,OAAO,CAAC;CAWpD"}

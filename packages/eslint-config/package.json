@@ -1,0 +1,11 @@
+{
+  "name": "@nexus/eslint-config",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "eslint": "^8",
+    "eslint-config-next": "latest",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.34.1"
+  }
+}

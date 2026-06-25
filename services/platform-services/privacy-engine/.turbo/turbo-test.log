@@ -1,0 +1,12 @@
+
+> @nexus/privacy-engine@0.1.0 test F:\Users\BIDA Mohamed Amine\Documents\Projects\DigiBooking\zsocial\services\platform-services\privacy-engine
+> jest
+
+PASS src/anonymization.service.spec.ts
+PASS src/deletion-queue.service.spec.ts
+
+Test Suites: 2 passed, 2 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        3.05 s
+Ran all test suites.

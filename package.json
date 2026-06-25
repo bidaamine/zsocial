@@ -23,8 +23,12 @@
     "ai:dev": "echo \"Run Python AI services individually when their pyproject files are added\""
   },
   "devDependencies": {
-    "turbo": "latest",
-    "prettier": "latest"
+    "@nestjs/testing": "^11.1.27",
+    "@types/jest": "^30.0.0",
+    "jest": "^30.4.2",
+    "prettier": "latest",
+    "ts-jest": "^29.4.11",
+    "turbo": "latest"
   },
   "engines": {
     "node": ">=20.0.0",
