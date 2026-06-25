@@ -1,0 +1,10 @@
+{
+  "extends": "@nexus/tsconfig/tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "baseUrl": "./"
+  },
+  "include": [
+    "src/**/*"
+  ]
+}

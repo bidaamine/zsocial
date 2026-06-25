@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  nexus_postgresql:
+    image: postgres:15
+    container_name: nexus_postgresql
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: nexus_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  nexus_redis_cache:
+    image: redis:7
+    container_name: nexus_redis_cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  nexus_neo4j_graph_db:
+    image: neo4j:5
+    container_name: nexus_neo4j_graph_db
+    environment:
+      NEO4J_AUTH: neo4j/password
+    ports:
+      - "7474:7474" # HTTP
+      - "7687:7687" # Bolt
+    volumes:
+      - neo4j_data:/data
+
+  nexus_zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: nexus_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  nexus_kafka_event_stream:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: nexus_kafka_event_stream
+    depends_on:
+      - nexus_zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: nexus_zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+volumes:
+  postgres_data:
+  redis_data:
+  neo4j_data:
