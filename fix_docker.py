@@ -1,4 +1,4 @@
-version: '3.8'
+compose = """version: '3.8'
 
 services:
   nexus_postgresql:
@@ -119,3 +119,9 @@ volumes:
   minio_data:
   timescaledb_data:
   clickhouse_data:
+"""
+
+with open("infra/local/docker-compose.yml", "w") as f:
+    f.write(compose)
+
+print("Fixed docker-compose.yml")
