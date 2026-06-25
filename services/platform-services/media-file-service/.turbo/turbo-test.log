@@ -8,5 +8,5 @@ PASS src/storage-provider.service.spec.ts
 Test Suites: 2 passed, 2 total
 Tests:       3 passed, 3 total
 Snapshots:   0 total
-Time:        4.428 s
+Time:        5.182 s
 Ran all test suites.

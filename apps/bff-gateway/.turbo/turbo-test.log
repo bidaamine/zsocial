@@ -5,10 +5,10 @@
 PASS src/aggregator.service.spec.ts
   AggregatorService
     √ should return web dashboard payload (21 ms)
-    √ should return mobile payload (8 ms)
+    √ should return mobile payload (4 ms)
 
 Test Suites: 1 passed, 1 total
 Tests:       2 passed, 2 total
 Snapshots:   0 total
-Time:        4.198 s
+Time:        5.075 s
 Ran all test suites.

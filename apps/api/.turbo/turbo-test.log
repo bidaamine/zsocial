@@ -1,0 +1,12 @@
+
+> @nexus/api@0.1.0 test F:\Users\BIDA Mohamed Amine\Documents\Projects\DigiBooking\zsocial\apps\api
+> jest
+
+PASS src/rate-limiter.guard.spec.ts
+PASS src/gateway-router.service.spec.ts
+
+Test Suites: 2 passed, 2 total
+Tests:       4 passed, 4 total
+Snapshots:   0 total
+Time:        4.056 s
+Ran all test suites.

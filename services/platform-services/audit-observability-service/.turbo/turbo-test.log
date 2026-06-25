@@ -4,11 +4,11 @@
 
 PASS src/worm-storage.adapter.spec.ts
   WormStorageAdapter
-    √ should write once successfully (19 ms)
+    √ should write once successfully (21 ms)
     √ should throw if writing twice (23 ms)
 
 Test Suites: 1 passed, 1 total
 Tests:       2 passed, 2 total
 Snapshots:   0 total
-Time:        4.369 s
+Time:        4.648 s
 Ran all test suites.

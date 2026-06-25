@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
+import { GatewayRouterService } from './gateway-router.service';
+import { RateLimiterGuard } from './rate-limiter.guard';
+import { GatewayController } from './gateway.controller';
 
 @Module({
   imports: [],
-  controllers: [AppController],
-  providers: [],
+  controllers: [GatewayController],
+  providers: [GatewayRouterService, RateLimiterGuard],
 })
 export class AppModule {}
