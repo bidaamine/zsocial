@@ -9,5 +9,5 @@ PASS src/threat-detection.service.spec.ts
 Test Suites: 3 passed, 3 total
 Tests:       6 passed, 6 total
 Snapshots:   0 total
-Time:        3.049 s
+Time:        4.392 s
 Ran all test suites.

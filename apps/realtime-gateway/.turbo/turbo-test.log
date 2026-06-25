@@ -1,0 +1,13 @@
+
+> @nexus/realtime-gateway@0.1.0 test F:\Users\BIDA Mohamed Amine\Documents\Projects\DigiBooking\zsocial\apps\realtime-gateway
+> jest
+
+PASS src/stream-manager.service.spec.ts
+  StreamManagerService
+    √ should format message correctly (23 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       1 passed, 1 total
+Snapshots:   0 total
+Time:        4.189 s
+Ran all test suites.

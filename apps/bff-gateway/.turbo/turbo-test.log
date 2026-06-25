@@ -1,0 +1,14 @@
+
+> @nexus/bff-gateway@0.1.0 test F:\Users\BIDA Mohamed Amine\Documents\Projects\DigiBooking\zsocial\apps\bff-gateway
+> jest
+
+PASS src/aggregator.service.spec.ts
+  AggregatorService
+    √ should return web dashboard payload (21 ms)
+    √ should return mobile payload (8 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        4.198 s
+Ran all test suites.

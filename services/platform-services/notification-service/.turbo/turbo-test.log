@@ -1,0 +1,14 @@
+
+> @nexus/notification-service@0.1.0 test F:\Users\BIDA Mohamed Amine\Documents\Projects\DigiBooking\zsocial\services\platform-services\notification-service
+> jest
+
+PASS src/notification-dispatcher.service.spec.ts
+  NotificationDispatcherService
+    √ should dispatch email (19 ms)
+    √ should dispatch push (4 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        4.221 s
+Ran all test suites.
