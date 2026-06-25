@@ -1,12 +1,13 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
+import { EventPattern, Payload } from '@nestjs/microservices';
 import { NotificationDispatcherService } from './notification-dispatcher.service';
 
 @Controller('notify')
 export class NotificationController {
-  constructor(private dispatcher: NotificationDispatcherService) {}
+  constructor(private readonly dispatcher: NotificationDispatcherService) {}
 
-  @Post()
-  async sendNotification(@Body() body: any) {
-    return this.dispatcher.dispatch(body.userId, body.channel, body.payload);
+  @EventPattern('dispatch_notification')
+  async handleNotification(@Payload() data: { userId: string, channel: 'email' | 'push', payload: any }) {
+    return this.dispatcher.dispatch(data.userId, data.channel, data.payload);
   }
 }

@@ -21,29 +21,29 @@ let MediaController = class MediaController {
     constructor(storage) {
         this.storage = storage;
     }
-    getUploadUrl(filename) {
-        return { url: this.storage.getPresignedUploadUrl(filename) };
+    async getUploadUrl(filename) {
+        return { url: await this.storage.generateUploadUrl(filename) };
     }
-    getDownloadUrl(fileId) {
-        return { url: this.storage.getPresignedDownloadUrl(fileId) };
+    async getDownloadUrl(fileId) {
+        return { url: await this.storage.generateDownloadUrl(fileId) };
     }
 };
 exports.MediaController = MediaController;
 __decorate([
+    (0, common_1.Post)('upload-url'),
     (0, common_1.UseGuards)(media_access_guard_1.MediaAccessGuard),
-    (0, common_1.Post)('upload/:filename'),
-    __param(0, (0, common_1.Param)('filename')),
+    __param(0, (0, common_1.Body)('filename')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], MediaController.prototype, "getUploadUrl", null);
 __decorate([
+    (0, common_1.Get)('download-url/:fileId'),
     (0, common_1.UseGuards)(media_access_guard_1.MediaAccessGuard),
-    (0, common_1.Get)('download/:fileId'),
     __param(0, (0, common_1.Param)('fileId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], MediaController.prototype, "getDownloadUrl", null);
 exports.MediaController = MediaController = __decorate([
     (0, common_1.Controller)('media'),

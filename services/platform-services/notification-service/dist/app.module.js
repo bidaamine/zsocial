@@ -8,17 +8,24 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
+const notification_controller_1 = require("./notification.controller");
+const notification_dispatcher_service_1 = require("./notification-dispatcher.service");
 const email_provider_1 = require("./providers/email.provider");
 const push_provider_1 = require("./providers/push.provider");
-const notification_dispatcher_service_1 = require("./notification-dispatcher.service");
-const notification_controller_1 = require("./notification.controller");
+const core_infra_1 = require("@nexus/core-infra");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [],
+        imports: [
+            core_infra_1.KafkaModule.registerClient('NOTIFICATION_CLIENT', ['localhost:9092'], 'notification-service')
+        ],
         controllers: [notification_controller_1.NotificationController],
-        providers: [email_provider_1.EmailProvider, push_provider_1.PushProvider, notification_dispatcher_service_1.NotificationDispatcherService],
+        providers: [
+            notification_dispatcher_service_1.NotificationDispatcherService,
+            email_provider_1.EmailProvider,
+            push_provider_1.PushProvider,
+        ],
     })
 ], AppModule);

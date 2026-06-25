@@ -1,8 +1,12 @@
 import { NotificationDispatcherService } from './notification-dispatcher.service';
 export declare class NotificationController {
-    private dispatcher;
+    private readonly dispatcher;
     constructor(dispatcher: NotificationDispatcherService);
-    sendNotification(body: any): Promise<{
+    handleNotification(data: {
+        userId: string;
+        channel: 'email' | 'push';
+        payload: any;
+    }): Promise<{
         success: boolean;
         method: string;
         to: string;

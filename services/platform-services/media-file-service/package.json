@@ -19,7 +19,8 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "@nexus/shared-types": "workspace:*",
-    "@nexus/api-contracts": "workspace:*"
+    "@nexus/api-contracts": "workspace:*",
+    "@nexus/core-infra": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",

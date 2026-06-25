@@ -1,12 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import { MinioService } from '@nexus/core-infra';
 
 @Injectable()
 export class StorageProviderService {
-  getPresignedUploadUrl(filename: string) {
-    return `https://s3.nexus.local/upload/${filename}?token=generated`;
+  constructor(private readonly minioService: MinioService) {}
+
+  async generateUploadUrl(filename: string): Promise<string> {
+    return this.minioService.getPresignedUploadUrl(filename);
   }
-  
-  getPresignedDownloadUrl(fileId: string) {
-    return `https://s3.nexus.local/download/${fileId}?token=generated`;
+
+  async generateDownloadUrl(fileId: string): Promise<string> {
+    return this.minioService.getPresignedDownloadUrl(fileId);
   }
 }

@@ -8,16 +8,22 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
-const worm_storage_adapter_1 = require("./worm-storage.adapter");
-const audit_log_service_1 = require("./audit-log.service");
 const telemetry_controller_1 = require("./telemetry.controller");
+const audit_log_service_1 = require("./audit-log.service");
+const worm_storage_adapter_1 = require("./worm-storage.adapter");
+const core_infra_1 = require("@nexus/core-infra");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [],
+        imports: [
+            core_infra_1.KafkaModule.registerClient('AUDIT_CLIENT', ['localhost:9092'], 'audit-service')
+        ],
         controllers: [telemetry_controller_1.TelemetryController],
-        providers: [worm_storage_adapter_1.WormStorageAdapter, audit_log_service_1.AuditLogService],
+        providers: [
+            audit_log_service_1.AuditLogService,
+            worm_storage_adapter_1.WormStorageAdapter,
+        ],
     })
 ], AppModule);

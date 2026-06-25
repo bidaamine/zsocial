@@ -10,14 +10,30 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const consent_controller_1 = require("./consent.controller");
 const consent_service_1 = require("./consent.service");
+const consent_enforcement_guard_1 = require("./consent-enforcement.guard");
+const core_infra_1 = require("@nexus/core-infra");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [],
+        imports: [
+            core_infra_1.PostgresModule.forRoot({
+                type: 'postgres',
+                host: 'localhost',
+                port: 5432,
+                username: 'nexus',
+                password: 'password',
+                database: 'nexus_db',
+                autoLoadEntities: true,
+                synchronize: true, // Only for dev
+            })
+        ],
         controllers: [consent_controller_1.ConsentController],
-        providers: [consent_service_1.ConsentService],
-        exports: [consent_service_1.ConsentService],
+        providers: [
+            consent_service_1.ConsentService,
+            consent_enforcement_guard_1.ConsentEnforcementGuard,
+        ],
+        exports: [consent_enforcement_guard_1.ConsentEnforcementGuard],
     })
 ], AppModule);

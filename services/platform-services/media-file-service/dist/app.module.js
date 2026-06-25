@@ -8,15 +8,33 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
-const storage_provider_service_1 = require("./storage-provider.service");
 const media_controller_1 = require("./media.controller");
+const storage_provider_service_1 = require("./storage-provider.service");
+const media_access_guard_1 = require("./media-access.guard");
+const core_infra_1 = require("@nexus/core-infra");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [],
+        imports: [
+            core_infra_1.MinioModule.forRoot({
+                config: {
+                    endpoint: 'http://localhost:9000',
+                    region: 'us-east-1',
+                    credentials: {
+                        accessKeyId: 'nexus',
+                        secretAccessKey: 'password123',
+                    },
+                    forcePathStyle: true,
+                },
+                bucket: 'nexus-media'
+            })
+        ],
         controllers: [media_controller_1.MediaController],
-        providers: [storage_provider_service_1.StorageProviderService],
+        providers: [
+            storage_provider_service_1.StorageProviderService,
+            media_access_guard_1.MediaAccessGuard,
+        ],
     })
 ], AppModule);
