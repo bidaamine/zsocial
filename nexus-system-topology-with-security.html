@@ -2127,9 +2127,11 @@
                     "nexus_identity_service", "nexus_notification_service", "nexus_media_file_service",
                     "nexus_audit_observability_service", "nexus_security_agent", 
                     "nexus_consent_privacy_service", "nexus_privacy_engine",
-                    "nexus_object_storage", "nexus_timeseries_db"
+                    "nexus_object_storage", "nexus_timeseries_db",
+                    "nexus_shared_packages", "nexus_flink_stream_processor",
+                    "nexus_data_lake", "nexus_data_warehouse"
                 ]);
-                const partialNodes = new Set(["nexus_shared_packages"]);
+                const partialNodes = new Set([]);
 
                 nodesData.forEach(n => {
                     if (completedNodes.has(n.id)) n.impl = "full";

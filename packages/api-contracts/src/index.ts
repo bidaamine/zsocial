@@ -1,9 +1,28 @@
-import { z } from 'zod';
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+  };
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
 
-export const CreateUserSchema = z.object({
-  email: z.string().email(),
-  name: z.string().min(2),
-  ageGroup: z.enum(['child', 'teen', 'adult', 'senior'])
-});
+export interface PaginationDto {
+  page: number;
+  limit: number;
+  sortBy?: string;
+  order?: 'ASC' | 'DESC';
+}
 
-export type CreateUserRequest = z.infer<typeof CreateUserSchema>;
+export enum HttpMethod {
+  GET = 'GET',
+  POST = 'POST',
+  PUT = 'PUT',
+  DELETE = 'DELETE',
+  PATCH = 'PATCH'
+}

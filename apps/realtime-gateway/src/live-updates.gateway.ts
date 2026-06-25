@@ -5,7 +5,7 @@ import { StreamManagerService } from './stream-manager.service';
 @WebSocketGateway({ cors: true })
 export class LiveUpdatesGateway {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   constructor(private streamManager: StreamManagerService) {}
 

@@ -1,0 +1,1 @@
+{"version":3,"file":"rate-limiter.guard.d.ts","sourceRoot":"","sources":["../src/rate-limiter.guard.ts"],"names":[],"mappings":"AAAA,OAAO,EAAc,WAAW,EAAE,gBAAgB,EAA6B,MAAM,gBAAgB,CAAC;AAEtG,qBACa,gBAAiB,YAAW,WAAW;IAClD,OAAO,CAAC,QAAQ,CAA6B;IAE7C,WAAW,CAAC,OAAO,EAAE,gBAAgB,GAAG,OAAO;CAYhD"}
