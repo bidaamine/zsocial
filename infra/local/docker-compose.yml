@@ -106,11 +106,7 @@ services:
       - "19530:19530"
     command: milvus run standalone
 
-  nexus_feature_store:
-    image: feastdev/feature-server:0.32.0
-    container_name: nexus_feature_store
-    ports:
-      - "6566:6566"
+
 
 volumes:
   postgres_data:
