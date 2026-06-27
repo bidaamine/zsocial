@@ -11,23 +11,32 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ConsentEnforcementGuard = void 0;
 const common_1 = require("@nestjs/common");
+const core_1 = require("@nestjs/core");
 const consent_service_1 = require("./consent.service");
+const require_consent_decorator_1 = require("./require-consent.decorator");
 let ConsentEnforcementGuard = class ConsentEnforcementGuard {
     consentService;
-    constructor(consentService) {
+    reflector;
+    constructor(consentService, reflector) {
         this.consentService = consentService;
+        this.reflector = reflector;
     }
     async canActivate(context) {
         const request = context.switchToHttp().getRequest();
-        const userId = request.headers['x-user-id'];
-        const requiredAction = request.route?.path; // Simplified mapping
-        if (!userId)
-            return false;
-        // A real implementation would map routes to specific consent requirements
-        // For now, we assume all actions require some specific check
-        const allowed = await this.consentService.verifyConsent(userId, 'allowHealthDataForAI');
+        // Retrieve required consent metadata from controller or method
+        const requiredConsent = this.reflector.getAllAndOverride(require_consent_decorator_1.CONSENT_KEY, [context.getHandler(), context.getClass()]);
+        // If no specific consent is registered for this route, allow access by default
+        if (!requiredConsent) {
+            return true;
+        }
+        // Identify user from header or verified request user context
+        const userId = request.headers['x-user-id'] || request.user?.sub;
+        if (!userId) {
+            throw new common_1.ForbiddenException('Access Denied: Missing user identity context');
+        }
+        const allowed = await this.consentService.verifyConsent(userId, requiredConsent);
         if (!allowed) {
-            throw new common_1.ForbiddenException('User has not consented to this data usage.');
+            throw new common_1.ForbiddenException(`Access Denied: User has not consented to data use for "${requiredConsent}"`);
         }
         return true;
     }
@@ -35,5 +44,6 @@ let ConsentEnforcementGuard = class ConsentEnforcementGuard {
 exports.ConsentEnforcementGuard = ConsentEnforcementGuard;
 exports.ConsentEnforcementGuard = ConsentEnforcementGuard = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [consent_service_1.ConsentService])
+    __metadata("design:paramtypes", [consent_service_1.ConsentService,
+        core_1.Reflector])
 ], ConsentEnforcementGuard);
