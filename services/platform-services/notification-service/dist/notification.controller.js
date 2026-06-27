@@ -22,7 +22,17 @@ let NotificationController = class NotificationController {
         this.dispatcher = dispatcher;
     }
     async handleNotification(data) {
-        return this.dispatcher.dispatch(data.userId, data.channel, data.payload);
+        return this.dispatcher.dispatch(data.userId, data.channel, data.templateKey || 'alert', data.recipient, data.variables || {});
+    }
+    async triggerManualSend(userId, channel, templateKey, recipient, variables) {
+        return this.dispatcher.dispatch(userId, channel, templateKey, recipient, variables || {});
+    }
+    async getHistory(userId) {
+        return this.dispatcher.getUserHistory(userId);
+    }
+    async retryFailed() {
+        const successCount = await this.dispatcher.processFailedRetries();
+        return { success: true, retriedSuccessfully: successCount };
     }
 };
 exports.NotificationController = NotificationController;
@@ -33,7 +43,31 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], NotificationController.prototype, "handleNotification", null);
+__decorate([
+    (0, common_1.Post)('send'),
+    __param(0, (0, common_1.Body)('userId')),
+    __param(1, (0, common_1.Body)('channel')),
+    __param(2, (0, common_1.Body)('templateKey')),
+    __param(3, (0, common_1.Body)('recipient')),
+    __param(4, (0, common_1.Body)('variables')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String, Object]),
+    __metadata("design:returntype", Promise)
+], NotificationController.prototype, "triggerManualSend", null);
+__decorate([
+    (0, common_1.Get)('history/:userId'),
+    __param(0, (0, common_1.Param)('userId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], NotificationController.prototype, "getHistory", null);
+__decorate([
+    (0, common_1.Post)('retry-failed'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], NotificationController.prototype, "retryFailed", null);
 exports.NotificationController = NotificationController = __decorate([
-    (0, common_1.Controller)('notify'),
+    (0, common_1.Controller)('notifications'),
     __metadata("design:paramtypes", [notification_dispatcher_service_1.NotificationDispatcherService])
 ], NotificationController);
