@@ -2,19 +2,35 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const testing_1 = require("@nestjs/testing");
 const gateway_router_service_1 = require("./gateway-router.service");
+const axios_1 = require("@nestjs/axios");
 const common_1 = require("@nestjs/common");
+const rxjs_1 = require("rxjs");
 describe('GatewayRouterService', () => {
     let service;
     beforeEach(async () => {
-        const mod = await testing_1.Test.createTestingModule({
-            providers: [gateway_router_service_1.GatewayRouterService]
+        const module = await testing_1.Test.createTestingModule({
+            providers: [
+                gateway_router_service_1.GatewayRouterService,
+                {
+                    provide: axios_1.HttpService,
+                    useValue: {
+                        request: jest.fn(() => (0, rxjs_1.of)({ data: 'mockData' })),
+                    },
+                },
+            ],
         }).compile();
-        service = mod.get(gateway_router_service_1.GatewayRouterService);
+        service = module.get(gateway_router_service_1.GatewayRouterService);
     });
-    it('should route auth', () => {
-        expect(service.routeRequest('/auth')).toBe('http://auth-service:4003');
+    it('should be defined', () => {
+        expect(service).toBeDefined();
     });
-    it('should throw on unknown', () => {
-        expect(() => service.routeRequest('/unknown')).toThrow(common_1.HttpException);
+    it('should proxy request successfully', async () => {
+        const req = { url: '/api/route/auth/login', method: 'POST', body: {}, headers: {} };
+        const res = await service.proxy('auth', req);
+        expect(res).toBe('mockData');
+    });
+    it('should throw error for unknown service', async () => {
+        const req = { url: '/api/route/unknown/test', method: 'GET', body: {}, headers: {} };
+        await expect(service.proxy('unknown', req)).rejects.toThrow(common_1.HttpException);
     });
 });

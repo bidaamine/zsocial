@@ -13,13 +13,15 @@ const gateway_router_service_1 = require("./gateway-router.service");
 const core_1 = require("@nestjs/core");
 const rate_limiter_guard_1 = require("./rate-limiter.guard");
 const core_infra_1 = require("@nexus/core-infra");
+const axios_1 = require("@nestjs/axios");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            core_infra_1.RedisModule.forRoot({ host: 'localhost', port: 6379 })
+            core_infra_1.RedisModule.forRoot({ host: 'localhost', port: 6379 }),
+            axios_1.HttpModule
         ],
         controllers: [gateway_controller_1.GatewayController],
         providers: [

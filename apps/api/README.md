@@ -1,7 +1,7 @@
 # NestJS API Gateway
 
 
-> This folder is intentionally documentation-only for now. It defines ownership, responsibilities, data flow, and future implementation boundaries. No application code is included in this generated structure.
+> **Status**: Fully implemented. This service forms part of the core NEXUS Foundation Layer and contains live application code.
 
 
 

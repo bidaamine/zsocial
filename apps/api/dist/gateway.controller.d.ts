@@ -5,9 +5,8 @@ export declare class GatewayController {
     healthCheck(): {
         status: string;
         layer: string;
+        zeroTrust: string;
     };
-    getRouteTarget(serviceName: string): {
-        target: string;
-    };
+    proxyRequest(serviceName: string, req: any): Promise<any>;
 }
 //# sourceMappingURL=gateway.controller.d.ts.map

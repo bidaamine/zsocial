@@ -1,12 +1,15 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Headers } from '@nestjs/common';
 import { AggregatorService } from './aggregator.service';
 
 @Controller('mobile')
 export class MobileAppController {
   constructor(private aggregator: AggregatorService) {}
 
-  @Get('home')
-  async getHome(@Query('userId') userId: string) {
-    return this.aggregator.getMobileAppData(userId || 'anonymous');
+  @Get('dashboard/:userId')
+  async getDashboard(
+    @Param('userId') userId: string,
+    @Headers('authorization') authHeader: string
+  ) {
+    return this.aggregator.getMobileAppData(userId, authHeader);
   }
 }

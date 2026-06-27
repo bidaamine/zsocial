@@ -1,6 +1,7 @@
-import { Controller, Get, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Req, All } from '@nestjs/common';
 import { GatewayRouterService } from './gateway-router.service';
 import { RateLimiterGuard } from './rate-limiter.guard';
+import { ZeroTrustGuard } from './zero-trust.guard';
 
 @Controller('api')
 @UseGuards(RateLimiterGuard)
@@ -9,11 +10,12 @@ export class GatewayController {
 
   @Get('health')
   healthCheck() {
-    return { status: 'Gateway is healthy', layer: 'Edge' };
+    return { status: 'Gateway is healthy', layer: 'Edge', zeroTrust: 'active' };
   }
 
-  @Get('route/:serviceName')
-  getRouteTarget(@Param('serviceName') serviceName: string) {
-    return { target: this.router.routeRequest(`/${serviceName}`) };
+  @UseGuards(ZeroTrustGuard)
+  @All('route/:serviceName/*')
+  async proxyRequest(@Param('serviceName') serviceName: string, @Req() req: any) {
+    return this.router.proxy(serviceName, req);
   }
 }

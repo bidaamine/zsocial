@@ -20,16 +20,17 @@ let WebDashboardController = class WebDashboardController {
     constructor(aggregator) {
         this.aggregator = aggregator;
     }
-    async getDashboard(userId) {
-        return this.aggregator.getWebDashboardData(userId || 'anonymous');
+    async getDashboard(userId, authHeader) {
+        return this.aggregator.getWebDashboardData(userId, authHeader);
     }
 };
 exports.WebDashboardController = WebDashboardController;
 __decorate([
-    (0, common_1.Get)('dashboard'),
-    __param(0, (0, common_1.Query)('userId')),
+    (0, common_1.Get)('dashboard/:userId'),
+    __param(0, (0, common_1.Param)('userId')),
+    __param(1, (0, common_1.Headers)('authorization')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], WebDashboardController.prototype, "getDashboard", null);
 exports.WebDashboardController = WebDashboardController = __decorate([

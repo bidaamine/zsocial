@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexus Architecture - Health Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #3b82f6;
+      --status-up: #10b981;
+      --status-up-bg: rgba(16, 185, 129, 0.1);
+      --status-down: #ef4444;
+      --status-down-bg: rgba(239, 68, 68, 0.1);
+      --border: #334155;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    h1 span {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .refresh-info {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--text-muted);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    
+    .section-title {
+      font-size: 1.25rem;
+      margin: 2rem 0 1rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      border-color: #475569;
+    }
+
+    .card-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .card-title {
+      font-weight: 600;
+      font-size: 1.05rem;
+    }
+    .card-meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+
+    .status-badge {
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .status-badge::before {
+      content: '';
+      display: block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    
+    .status-up {
+      color: var(--status-up);
+      background-color: var(--status-up-bg);
+    }
+    .status-up::before {
+      background-color: var(--status-up);
+      box-shadow: 0 0 8px var(--status-up);
+    }
+
+    .status-down {
+      color: var(--status-down);
+      background-color: var(--status-down-bg);
+    }
+    .status-down::before {
+      background-color: var(--status-down);
+      box-shadow: 0 0 8px var(--status-down);
+    }
+
+    .status-loading {
+      color: var(--text-muted);
+      background-color: var(--border);
+    }
+    .status-loading::before {
+      background-color: var(--text-muted);
+    }
+
+    .footer {
+      margin-top: auto;
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="url(#gradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <defs>
+            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#3b82f6" />
+              <stop offset="100%" stop-color="#8b5cf6" />
+            </linearGradient>
+          </defs>
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+        </svg>
+        <span>Nexus System Health</span>
+      </h1>
+      <div class="refresh-info">
+        <div id="spinner" class="spinner" style="display: none;"></div>
+        <span id="last-updated">Waiting for data...</span>
+      </div>
+    </header>
+
+    <div class="section-title">Infrastructure Dependencies</div>
+    <div class="grid" id="infra-grid"></div>
+
+    <div class="section-title">Microservices</div>
+    <div class="grid" id="service-grid"></div>
+  </div>
+
+  <footer class="footer">
+    Auto-refreshing every 5 seconds. Checks local TCP ports.
+  </footer>
+
+  <script>
+    const infraGrid = document.getElementById('infra-grid');
+    const serviceGrid = document.getElementById('service-grid');
+    const lastUpdated = document.getElementById('last-updated');
+    const spinner = document.getElementById('spinner');
+
+    const renderCard = (service) => {
+      const isUp = service.isUp;
+      const statusClass = isUp === undefined ? 'status-loading' : (isUp ? 'status-up' : 'status-down');
+      const statusText = isUp === undefined ? 'Checking...' : (isUp ? 'Online' : 'Offline');
+      
+      return `
+        <div class="card" id="card-${service.port}">
+          <div class="card-info">
+            <div class="card-title">${service.name}</div>
+            <div class="card-meta">Port: ${service.port}</div>
+          </div>
+          <div class="status-badge ${statusClass}">
+            ${statusText}
+          </div>
+        </div>
+      `;
+    };
+
+    const fetchHealth = async () => {
+      spinner.style.display = 'block';
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        
+        const infraHtml = data.filter(s => s.type === 'infra').map(renderCard).join('');
+        const serviceHtml = data.filter(s => s.type === 'service').map(renderCard).join('');
+        
+        infraGrid.innerHTML = infraHtml;
+        serviceGrid.innerHTML = serviceHtml;
+        
+        const now = new Date();
+        lastUpdated.innerText = 'Last checked: ' + now.toLocaleTimeString();
+      } catch (err) {
+        lastUpdated.innerText = 'Connection lost to dashboard server.';
+      } finally {
+        spinner.style.display = 'none';
+      }
+    };
+
+    // Initial load and interval
+    fetchHealth();
+    setInterval(fetchHealth, 5000);
+  </script>
+</body>
+</html>

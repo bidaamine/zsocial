@@ -1,16 +1,24 @@
+import { HttpService } from '@nestjs/axios';
 export declare class AggregatorService {
-    getWebDashboardData(userId: string): Promise<{
+    private readonly httpService;
+    private readonly logger;
+    constructor(httpService: HttpService);
+    getWebDashboardData(userId: string, authHeader: string): Promise<{
         userId: string;
         surface: string;
-        feeds: string[];
-        notifications: number;
+        profile: any;
+        consent: any;
+        authStatus: any;
+        aggregatedAt: string;
     }>;
-    getMobileAppData(userId: string): Promise<{
-        userId: string;
+    getMobileAppData(userId: string, authHeader: string): Promise<{
         surface: string;
-        feeds: string[];
-        notifications: number;
         pushEnabled: boolean;
+        userId: string;
+        profile: any;
+        consent: any;
+        authStatus: any;
+        aggregatedAt: string;
     }>;
 }
 //# sourceMappingURL=aggregator.service.d.ts.map

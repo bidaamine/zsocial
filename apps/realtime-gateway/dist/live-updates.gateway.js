@@ -11,21 +11,41 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var LiveUpdatesGateway_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LiveUpdatesGateway = void 0;
 const websockets_1 = require("@nestjs/websockets");
 const socket_io_1 = require("socket.io");
 const stream_manager_service_1 = require("./stream-manager.service");
-let LiveUpdatesGateway = class LiveUpdatesGateway {
+const common_1 = require("@nestjs/common");
+let LiveUpdatesGateway = LiveUpdatesGateway_1 = class LiveUpdatesGateway {
     streamManager;
     server;
+    logger = new common_1.Logger(LiveUpdatesGateway_1.name);
     constructor(streamManager) {
         this.streamManager = streamManager;
     }
-    handleSubscribe(data) {
-        // In real app, socket joins room
+    handleConnection(client) {
+        this.logger.log(`Client connected: ${client.id}`);
+    }
+    handleDisconnect(client) {
+        this.logger.log(`Client disconnected: ${client.id}`);
+    }
+    handleSubscribe(data, client) {
+        this.logger.log(`Client ${client.id} subscribing to topic ${data.topic}`);
+        client.join(data.topic);
         const msg = this.streamManager.formatMessage(data.topic, { status: 'subscribed' });
         return { event: 'subscription_success', data: msg };
+    }
+    handleUnsubscribe(data, client) {
+        this.logger.log(`Client ${client.id} unsubscribing from topic ${data.topic}`);
+        client.leave(data.topic);
+        return { event: 'unsubscription_success', data: { topic: data.topic } };
+    }
+    // Called by Kafka consumer to broadcast
+    broadcastToTopic(topic, eventName, payload) {
+        this.logger.log(`Broadcasting to ${topic}: ${eventName}`);
+        this.server.to(topic).emit(eventName, payload);
     }
 };
 exports.LiveUpdatesGateway = LiveUpdatesGateway;
@@ -36,11 +56,20 @@ __decorate([
 __decorate([
     (0, websockets_1.SubscribeMessage)('subscribe_topic'),
     __param(0, (0, websockets_1.MessageBody)()),
+    __param(1, (0, websockets_1.ConnectedSocket)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, socket_io_1.Socket]),
     __metadata("design:returntype", void 0)
 ], LiveUpdatesGateway.prototype, "handleSubscribe", null);
-exports.LiveUpdatesGateway = LiveUpdatesGateway = __decorate([
+__decorate([
+    (0, websockets_1.SubscribeMessage)('unsubscribe_topic'),
+    __param(0, (0, websockets_1.MessageBody)()),
+    __param(1, (0, websockets_1.ConnectedSocket)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, socket_io_1.Socket]),
+    __metadata("design:returntype", void 0)
+], LiveUpdatesGateway.prototype, "handleUnsubscribe", null);
+exports.LiveUpdatesGateway = LiveUpdatesGateway = LiveUpdatesGateway_1 = __decorate([
     (0, websockets_1.WebSocketGateway)({ cors: true }),
     __metadata("design:paramtypes", [stream_manager_service_1.StreamManagerService])
 ], LiveUpdatesGateway);

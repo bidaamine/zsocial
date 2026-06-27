@@ -1,12 +1,15 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Headers } from '@nestjs/common';
 import { AggregatorService } from './aggregator.service';
 
 @Controller('web')
 export class WebDashboardController {
   constructor(private aggregator: AggregatorService) {}
 
-  @Get('dashboard')
-  async getDashboard(@Query('userId') userId: string) {
-    return this.aggregator.getWebDashboardData(userId || 'anonymous');
+  @Get('dashboard/:userId')
+  async getDashboard(
+    @Param('userId') userId: string,
+    @Headers('authorization') authHeader: string
+  ) {
+    return this.aggregator.getWebDashboardData(userId, authHeader);
   }
 }

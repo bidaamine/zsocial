@@ -1,28 +1,39 @@
-version: '3.8'
+version: "3.8"
 
 services:
   nexus_postgresql:
-    image: postgres:15
+    image: postgres:17-alpine
     container_name: nexus_postgresql
     environment:
       POSTGRES_USER: nexus
       POSTGRES_PASSWORD: password
       POSTGRES_DB: nexus_db
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d nexus_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   nexus_redis_cache:
-    image: redis:7
+    image: redis:7.4-alpine
     container_name: nexus_redis_cache
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   nexus_neo4j_graph_db:
-    image: neo4j:5
+    image: neo4j:5.26
     container_name: nexus_neo4j_graph_db
     environment:
       NEO4J_AUTH: neo4j/password
@@ -31,31 +42,36 @@ services:
       - "7687:7687"
     volumes:
       - neo4j_data:/data
-
-  nexus_zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.0
-    container_name: nexus_zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "password", "RETURN 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
 
   nexus_kafka_event_stream:
-    image: confluentinc/cp-kafka:7.4.0
+    image: confluentinc/cp-kafka:7.6.1
     container_name: nexus_kafka_event_stream
-    depends_on:
-      - nexus_zookeeper
     ports:
       - "9092:9092"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: nexus_zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      # KRaft Configuration (No Zookeeper Required)
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://nexus_kafka_event_stream:29092,PLAINTEXT_HOST://localhost:9092"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REREPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@nexus_kafka_event_stream:29093"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
 
   nexus_object_storage:
-    image: minio/minio:RELEASE.2023-09-07T02-05-02Z
+    image: minio/minio:latest
     container_name: nexus_object_storage
     environment:
       MINIO_ROOT_USER: nexus
@@ -66,21 +82,31 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
+    networks:
+      default:
+        aliases:
+          - minio
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   nexus_timeseries_db:
-    image: timescale/timescaledb:latest-pg15
+    image: timescale/timescaledb:latest-pg16
     container_name: nexus_timeseries_db
     environment:
       POSTGRES_USER: nexus_ts
       POSTGRES_PASSWORD: password123
       POSTGRES_DB: nexus_telemetry
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5433:5432"
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
 
   nexus_flink_stream_processor:
-    image: flink:1.17
+    image: flink:1.19
     container_name: nexus_flink_jobmanager
     ports:
       - "8081:8081"
@@ -91,22 +117,35 @@ services:
         jobmanager.rpc.address: nexus_flink_jobmanager
 
   nexus_data_warehouse:
-    image: clickhouse/clickhouse-server:23.8
+    image: clickhouse/clickhouse-server:24.3
     container_name: nexus_data_warehouse
     ports:
       - "8123:8123"
-      - "9000:9000"
+      - "9009:9000"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   nexus_vector_db:
-    image: milvusdb/milvus:v2.3.0
+    image: milvusdb/milvus:v2.4.4
     container_name: nexus_vector_db
     ports:
       - "19530:19530"
+      - "9091:9091"
     command: milvus run standalone
-
-
+    environment:
+      ETCD_USE_EMBED: "true"
+      ETCD_DATA_DIR: "/var/lib/milvus/etcd"
+      MINIO_ADDRESS: "minio:9000"
+      MINIO_ACCESS_KEY_ID: "nexus"
+      MINIO_SECRET_ACCESS_KEY: "password123"
+    depends_on:
+      nexus_object_storage:
+        condition: service_healthy
 
 volumes:
   postgres_data:

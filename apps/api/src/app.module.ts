@@ -4,10 +4,12 @@ import { GatewayRouterService } from './gateway-router.service';
 import { APP_GUARD } from '@nestjs/core';
 import { RateLimiterGuard } from './rate-limiter.guard';
 import { RedisModule } from '@nexus/core-infra';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
-    RedisModule.forRoot({ host: 'localhost', port: 6379 })
+    RedisModule.forRoot({ host: 'localhost', port: 6379 }),
+    HttpModule
   ],
   controllers: [GatewayController],
   providers: [

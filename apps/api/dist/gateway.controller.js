@@ -16,16 +16,17 @@ exports.GatewayController = void 0;
 const common_1 = require("@nestjs/common");
 const gateway_router_service_1 = require("./gateway-router.service");
 const rate_limiter_guard_1 = require("./rate-limiter.guard");
+const zero_trust_guard_1 = require("./zero-trust.guard");
 let GatewayController = class GatewayController {
     router;
     constructor(router) {
         this.router = router;
     }
     healthCheck() {
-        return { status: 'Gateway is healthy', layer: 'Edge' };
+        return { status: 'Gateway is healthy', layer: 'Edge', zeroTrust: 'active' };
     }
-    getRouteTarget(serviceName) {
-        return { target: this.router.routeRequest(`/${serviceName}`) };
+    async proxyRequest(serviceName, req) {
+        return this.router.proxy(serviceName, req);
     }
 };
 exports.GatewayController = GatewayController;
@@ -36,12 +37,14 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], GatewayController.prototype, "healthCheck", null);
 __decorate([
-    (0, common_1.Get)('route/:serviceName'),
+    (0, common_1.UseGuards)(zero_trust_guard_1.ZeroTrustGuard),
+    (0, common_1.All)('route/:serviceName/*'),
     __param(0, (0, common_1.Param)('serviceName')),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], GatewayController.prototype, "getRouteTarget", null);
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], GatewayController.prototype, "proxyRequest", null);
 exports.GatewayController = GatewayController = __decorate([
     (0, common_1.Controller)('api'),
     (0, common_1.UseGuards)(rate_limiter_guard_1.RateLimiterGuard),

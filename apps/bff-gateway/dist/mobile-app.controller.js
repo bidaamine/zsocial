@@ -20,18 +20,19 @@ let MobileAppController = class MobileAppController {
     constructor(aggregator) {
         this.aggregator = aggregator;
     }
-    async getHome(userId) {
-        return this.aggregator.getMobileAppData(userId || 'anonymous');
+    async getDashboard(userId, authHeader) {
+        return this.aggregator.getMobileAppData(userId, authHeader);
     }
 };
 exports.MobileAppController = MobileAppController;
 __decorate([
-    (0, common_1.Get)('home'),
-    __param(0, (0, common_1.Query)('userId')),
+    (0, common_1.Get)('dashboard/:userId'),
+    __param(0, (0, common_1.Param)('userId')),
+    __param(1, (0, common_1.Headers)('authorization')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
-], MobileAppController.prototype, "getHome", null);
+], MobileAppController.prototype, "getDashboard", null);
 exports.MobileAppController = MobileAppController = __decorate([
     (0, common_1.Controller)('mobile'),
     __metadata("design:paramtypes", [aggregator_service_1.AggregatorService])

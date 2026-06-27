@@ -8,15 +8,20 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
+const axios_1 = require("@nestjs/axios");
 const web_dashboard_controller_1 = require("./web-dashboard.controller");
 const mobile_app_controller_1 = require("./mobile-app.controller");
 const aggregator_service_1 = require("./aggregator.service");
+const core_infra_1 = require("@nexus/core-infra");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [],
+        imports: [
+            core_infra_1.RedisModule.forRoot({ host: 'localhost', port: 6379 }),
+            axios_1.HttpModule
+        ],
         controllers: [web_dashboard_controller_1.WebDashboardController, mobile_app_controller_1.MobileAppController],
         providers: [aggregator_service_1.AggregatorService],
     })
