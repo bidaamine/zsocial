@@ -26,6 +26,12 @@ let TelemetryController = class TelemetryController {
     getAudit(eventId) {
         return this.audit.getEvent(eventId);
     }
+    recordAiDecision(body) {
+        return this.audit.logAiDecision(body.eventId, body.modelVersion, body.inputs, body.decision, body.confidence, body.explanation);
+    }
+    getAiDecision(eventId) {
+        return this.audit.getAiDecision(eventId);
+    }
 };
 exports.TelemetryController = TelemetryController;
 __decorate([
@@ -42,6 +48,20 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], TelemetryController.prototype, "getAudit", null);
+__decorate([
+    (0, common_1.Post)('ai-decision'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], TelemetryController.prototype, "recordAiDecision", null);
+__decorate([
+    (0, common_1.Get)('ai-decision/:eventId'),
+    __param(0, (0, common_1.Param)('eventId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], TelemetryController.prototype, "getAiDecision", null);
 exports.TelemetryController = TelemetryController = __decorate([
     (0, common_1.Controller)('telemetry'),
     __metadata("design:paramtypes", [audit_log_service_1.AuditLogService])

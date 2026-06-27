@@ -3,13 +3,37 @@ import { WormStorageAdapter } from './worm-storage.adapter';
 
 @Injectable()
 export class AuditLogService {
-  constructor(private worm: WormStorageAdapter) {}
+  constructor(private readonly worm: WormStorageAdapter) {}
 
-  logEvent(eventId: string, actor: string, action: string, resource: string) {
-    return this.worm.writeOnce(eventId, { actor, action, resource });
+  async logEvent(eventId: string, actor: string, action: string, resource: string) {
+    return this.worm.writeOnceAudit(eventId, { actor, action, resource });
   }
 
-  getEvent(eventId: string) {
-    return this.worm.read(eventId);
+  /**
+   * Logs AI decisions with explainability metrics to ensure compliance with EU AI Act.
+   */
+  async logAiDecision(
+    eventId: string,
+    modelVersion: string,
+    inputs: any,
+    decision: string,
+    confidence: number,
+    explanation: string,
+  ) {
+    return this.worm.writeOnceAi(eventId, {
+      modelVersion,
+      inputs,
+      decision,
+      confidence,
+      explanation,
+    });
+  }
+
+  async getEvent(eventId: string) {
+    return this.worm.readAudit(eventId);
+  }
+
+  async getAiDecision(eventId: string) {
+    return this.worm.readAi(eventId);
   }
 }

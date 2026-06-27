@@ -17,11 +17,26 @@ let AuditLogService = class AuditLogService {
     constructor(worm) {
         this.worm = worm;
     }
-    logEvent(eventId, actor, action, resource) {
-        return this.worm.writeOnce(eventId, { actor, action, resource });
+    async logEvent(eventId, actor, action, resource) {
+        return this.worm.writeOnceAudit(eventId, { actor, action, resource });
     }
-    getEvent(eventId) {
-        return this.worm.read(eventId);
+    /**
+     * Logs AI decisions with explainability metrics to ensure compliance with EU AI Act.
+     */
+    async logAiDecision(eventId, modelVersion, inputs, decision, confidence, explanation) {
+        return this.worm.writeOnceAi(eventId, {
+            modelVersion,
+            inputs,
+            decision,
+            confidence,
+            explanation,
+        });
+    }
+    async getEvent(eventId) {
+        return this.worm.readAudit(eventId);
+    }
+    async getAiDecision(eventId) {
+        return this.worm.readAi(eventId);
     }
 };
 exports.AuditLogService = AuditLogService;
