@@ -4,7 +4,9 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": false,
+    "esModuleInterop": true
   },
   "exclude": [
     "node_modules",
