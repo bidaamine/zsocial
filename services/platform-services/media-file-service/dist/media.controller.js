@@ -21,11 +21,21 @@ let MediaController = class MediaController {
     constructor(storage) {
         this.storage = storage;
     }
-    async getUploadUrl(filename) {
-        return { url: await this.storage.generateUploadUrl(filename) };
+    async getUploadUrl(filename, req) {
+        if (!filename) {
+            throw new common_1.BadRequestException('Filename must be provided');
+        }
+        const userId = req.user.sub;
+        return this.storage.generateUploadUrl(filename, userId);
     }
-    async getDownloadUrl(fileId) {
-        return { url: await this.storage.generateDownloadUrl(fileId) };
+    async getDownloadUrl(fileId, req) {
+        const userId = req.user.sub;
+        const url = await this.storage.generateDownloadUrl(fileId, userId);
+        return { url };
+    }
+    async processUpload(fileId) {
+        const record = await this.storage.processUploadedFile(fileId);
+        return { success: true, status: record.status, mimeType: record.mimeType, size: record.size };
     }
 };
 exports.MediaController = MediaController;
@@ -33,18 +43,27 @@ __decorate([
     (0, common_1.Post)('upload-url'),
     (0, common_1.UseGuards)(media_access_guard_1.MediaAccessGuard),
     __param(0, (0, common_1.Body)('filename')),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], MediaController.prototype, "getUploadUrl", null);
 __decorate([
     (0, common_1.Get)('download-url/:fileId'),
     (0, common_1.UseGuards)(media_access_guard_1.MediaAccessGuard),
     __param(0, (0, common_1.Param)('fileId')),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], MediaController.prototype, "getDownloadUrl", null);
+__decorate([
+    (0, common_1.Post)('process-upload/:fileId'),
+    __param(0, (0, common_1.Param)('fileId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
-], MediaController.prototype, "getDownloadUrl", null);
+], MediaController.prototype, "processUpload", null);
 exports.MediaController = MediaController = __decorate([
     (0, common_1.Controller)('media'),
     __metadata("design:paramtypes", [storage_provider_service_1.StorageProviderService])

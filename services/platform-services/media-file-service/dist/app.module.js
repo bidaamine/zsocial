@@ -8,9 +8,11 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
+const typeorm_1 = require("@nestjs/typeorm");
 const media_controller_1 = require("./media.controller");
 const storage_provider_service_1 = require("./storage-provider.service");
 const media_access_guard_1 = require("./media-access.guard");
+const media_record_entity_1 = require("./entities/media-record.entity");
 const core_infra_1 = require("@nexus/core-infra");
 let AppModule = class AppModule {
 };
@@ -18,6 +20,17 @@ exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            core_infra_1.PostgresModule.forRoot({
+                type: 'postgres',
+                host: 'localhost',
+                port: 5434,
+                username: 'nexus',
+                password: 'password',
+                database: 'nexus_db',
+                autoLoadEntities: true,
+                synchronize: true, // Dev-only
+            }),
+            typeorm_1.TypeOrmModule.forFeature([media_record_entity_1.MediaRecord]),
             core_infra_1.MinioModule.forRoot({
                 config: {
                     endpoint: 'http://localhost:9000',
