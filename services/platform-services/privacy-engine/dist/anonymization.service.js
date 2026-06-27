@@ -11,13 +11,44 @@ exports.AnonymizationService = void 0;
 const common_1 = require("@nestjs/common");
 let AnonymizationService = AnonymizationService_1 = class AnonymizationService {
     logger = new common_1.Logger(AnonymizationService_1.name);
-    applyDifferentialPrivacy(data, epsilon) {
-        this.logger.log(`Applying differential privacy with epsilon=${epsilon}`);
-        // Simplified Laplacian noise addition
-        return data.map(value => {
-            const noise = this.generateLaplaceNoise(1 / epsilon);
-            return value + noise;
-        });
+    // List of keys that contain PII and should be removed completely
+    piiKeys = new Set(['name', 'email', 'phone', 'address', 'ssn', 'ip_address', 'location']);
+    /**
+     * Applies anonymization to a JSON payload. Removes PII completely and
+     * adds differential privacy noise to numeric metrics (e.g., heart rate, salary).
+     */
+    anonymizePayload(payload, epsilon = 0.5) {
+        this.logger.log(`Anonymizing payload with epsilon=${epsilon}`);
+        return this.traverseAndAnonymize(payload, epsilon);
+    }
+    traverseAndAnonymize(obj, epsilon) {
+        if (obj === null || typeof obj !== 'object') {
+            return obj;
+        }
+        if (Array.isArray(obj)) {
+            return obj.map(item => this.traverseAndAnonymize(item, epsilon));
+        }
+        const anonymized = {};
+        for (const [key, value] of Object.entries(obj)) {
+            const lowerKey = key.toLowerCase();
+            // 1. Strip PII keys
+            if (this.piiKeys.has(lowerKey) || lowerKey.includes('name') || lowerKey.includes('email')) {
+                continue; // Completely remove this key from the dataset
+            }
+            // 2. Apply differential privacy to numeric values
+            if (typeof value === 'number') {
+                anonymized[key] = value + this.generateLaplaceNoise(1 / epsilon);
+            }
+            // 3. Recurse for nested objects
+            else if (typeof value === 'object') {
+                anonymized[key] = this.traverseAndAnonymize(value, epsilon);
+            }
+            // 4. Keep other non-PII primitives
+            else {
+                anonymized[key] = value;
+            }
+        }
+        return anonymized;
     }
     generateLaplaceNoise(scale) {
         const u = Math.random() - 0.5;

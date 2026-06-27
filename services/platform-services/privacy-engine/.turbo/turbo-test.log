@@ -8,5 +8,5 @@ PASS src/deletion-queue.service.spec.ts
 Test Suites: 2 passed, 2 total
 Tests:       2 passed, 2 total
 Snapshots:   0 total
-Time:        5.444 s
+Time:        3.584 s, estimated 4 s
 Ran all test suites.

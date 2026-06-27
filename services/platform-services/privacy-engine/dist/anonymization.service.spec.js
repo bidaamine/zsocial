@@ -11,9 +11,10 @@ describe('AnonymizationService', () => {
         service = module.get(anonymization_service_1.AnonymizationService);
     });
     it('should apply noise to dataset', () => {
-        const input = [10, 20, 30];
-        const output = service.applyDifferentialPrivacy(input, 0.5);
-        expect(output.length).toBe(3);
-        expect(output).not.toEqual(input); // Extremely unlikely to be exactly equal
+        const input = { data: [{ val: 10 }, { val: 20 }, { val: 30 }], name: 'John Doe' };
+        const output = service.anonymizePayload(input, 0.5);
+        expect(output.data.length).toBe(3);
+        expect(output.data?.[0]?.val).not.toEqual(input.data?.[0]?.val); // Extremely unlikely to be exactly equal
+        expect(output.name).toBeUndefined(); // PII stripped
     });
 });

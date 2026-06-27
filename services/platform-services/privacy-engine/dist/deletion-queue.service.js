@@ -5,21 +5,101 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var DeletionQueueService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeletionQueueService = void 0;
 const common_1 = require("@nestjs/common");
+const typeorm_1 = require("@nestjs/typeorm");
+const typeorm_2 = require("typeorm");
+const microservices_1 = require("@nestjs/microservices");
+const deletion_job_entity_1 = require("./entities/deletion-job.entity");
 let DeletionQueueService = DeletionQueueService_1 = class DeletionQueueService {
+    deletionJobRepository;
     logger = new common_1.Logger(DeletionQueueService_1.name);
+    kafkaClient;
+    constructor(deletionJobRepository) {
+        this.deletionJobRepository = deletionJobRepository;
+        this.kafkaClient = new microservices_1.ClientKafka({
+            client: {
+                clientId: 'privacy-engine',
+                brokers: [process.env.KAFKA_BROKER || 'localhost:9092'],
+            },
+            producer: {
+                allowAutoTopicCreation: true,
+            },
+        });
+    }
+    async onModuleInit() {
+        try {
+            await this.kafkaClient.connect();
+            this.logger.log('Kafka Client Connected for Deletion Queue');
+        }
+        catch (err) {
+            this.logger.warn(`Failed to connect to Kafka: ${err.message}`);
+        }
+    }
+    async onModuleDestroy() {
+        await this.kafkaClient.close();
+    }
+    async getJobStatus(jobId) {
+        return this.deletionJobRepository.findOne({ where: { id: jobId } });
+    }
     async registerDeletionRequest(userId) {
-        const jobId = `del-${Date.now()}-${userId}`;
-        this.logger.log(`Registered GDPR deletion request for user ${userId}. Job ID: ${jobId}`);
-        // In production: Publish event to Kafka to trigger cascaded deletion across:
-        // Postgres, Neo4j, TimescaleDB, VectorDB, Data Lake, and Object Storage.
-        return jobId;
+        this.logger.log(`Registering GDPR deletion request for user ${userId}`);
+        const job = this.deletionJobRepository.create({
+            userId,
+            status: 'IN_PROGRESS',
+            progress: {
+                auth: false,
+                consent: false,
+            },
+        });
+        const saved = await this.deletionJobRepository.save(job);
+        const eventPayload = {
+            jobId: saved.id,
+            userId,
+            requestedAt: saved.requestedAt.toISOString(),
+            status: 'PENDING_CASCADING_DELETION',
+        };
+        // Emit event to trigger cascade
+        try {
+            this.kafkaClient.emit('gdpr.user.deletion.requested', eventPayload);
+            this.logger.log(`Emitted gdpr.user.deletion.requested for Job: ${saved.id}`);
+        }
+        catch (err) {
+            this.logger.error(`Failed to emit gdpr.user.deletion.requested: ${err.message}`);
+        }
+        return saved.id;
+    }
+    async handleServiceDeletionCompleted(jobId, serviceName) {
+        this.logger.log(`Service "${serviceName}" reported deletion completion for Job: ${jobId}`);
+        const job = await this.deletionJobRepository.findOne({ where: { id: jobId } });
+        if (!job) {
+            this.logger.warn(`No deletion job found with ID: ${jobId}`);
+            return;
+        }
+        // Mark service as completed
+        const updatedProgress = { ...job.progress, [serviceName]: true };
+        job.progress = updatedProgress;
+        // Check if all services completed deletion
+        const allCompleted = Object.values(updatedProgress).every((val) => val === true);
+        if (allCompleted) {
+            job.status = 'COMPLETED';
+            job.completedAt = new Date();
+            this.logger.log(`GDPR Cascading Deletion Job completed successfully for user ${job.userId}`);
+        }
+        await this.deletionJobRepository.save(job);
     }
 };
 exports.DeletionQueueService = DeletionQueueService;
 exports.DeletionQueueService = DeletionQueueService = DeletionQueueService_1 = __decorate([
-    (0, common_1.Injectable)()
+    (0, common_1.Injectable)(),
+    __param(0, (0, typeorm_1.InjectRepository)(deletion_job_entity_1.DeletionJob)),
+    __metadata("design:paramtypes", [typeorm_2.Repository])
 ], DeletionQueueService);
