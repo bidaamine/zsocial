@@ -12,6 +12,8 @@ const threat_detection_service_1 = require("./threat-detection.service");
 const zero_trust_guard_1 = require("./zero-trust.guard");
 const child_data_protection_interceptor_1 = require("./child-data-protection.interceptor");
 const core_infra_1 = require("@nexus/core-infra");
+const zkp_service_1 = require("./zkp.service");
+const security_controller_1 = require("./security.controller");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -20,14 +22,17 @@ exports.AppModule = AppModule = __decorate([
         imports: [
             core_infra_1.RedisModule.forRoot({ host: 'localhost', port: 6379 })
         ],
+        controllers: [security_controller_1.SecurityController],
         providers: [
             threat_detection_service_1.ThreatDetectionService,
             zero_trust_guard_1.ZeroTrustGuard,
             child_data_protection_interceptor_1.ChildDataProtectionInterceptor,
+            zkp_service_1.ZkpService,
         ],
         exports: [
             threat_detection_service_1.ThreatDetectionService,
             zero_trust_guard_1.ZeroTrustGuard,
+            zkp_service_1.ZkpService,
         ],
     })
 ], AppModule);
