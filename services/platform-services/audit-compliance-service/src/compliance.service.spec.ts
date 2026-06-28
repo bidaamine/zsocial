@@ -9,10 +9,12 @@ describe('ComplianceService', () => {
   let service: ComplianceService;
   let scanDb: Record<string, ComplianceScan>;
   let reportDb: Record<string, ComplianceReport>;
+  let mockQueryResult: any[];
 
   beforeEach(async () => {
     scanDb = {};
     reportDb = {};
+    mockQueryResult = [];
 
     const scanRepositoryMock = {
       create: jest.fn().mockImplementation((dto) => dto),
@@ -38,7 +40,7 @@ describe('ComplianceService', () => {
 
     const queryRunnerMock = {
       connect: jest.fn().mockResolvedValue(null),
-      query: jest.fn().mockResolvedValue([]), // mock empty active breaches
+      query: jest.fn().mockImplementation(() => Promise.resolve(mockQueryResult)),
       release: jest.fn().mockResolvedValue(null),
     };
 
@@ -58,10 +60,41 @@ describe('ComplianceService', () => {
     service = module.get<ComplianceService>(ComplianceService);
   });
 
-  it('should run a compliance scan and return passed status', async () => {
+  it('should run a compliance scan and return passed status when there are no findings', async () => {
     const scan = await service.runComplianceScan('gdpr_sla_scan');
     expect(scan.status).toBe('passed');
     expect(scan.findings).toEqual([]);
+  });
+
+  it('should run ccpa_scan and report findings on data sharing violations', async () => {
+    mockQueryResult = [{ id: 'pref-123' }];
+    const scan = await service.runComplianceScan('ccpa_scan');
+    expect(scan.status).toBe('failed');
+    expect(scan.findings[0].rule).toBe('CCPA_OPT_OUT_VIOLATION');
+    expect(scan.findings[0].prefId).toBe('pref-123');
+  });
+
+  it('should run soc2_scan and report findings on privileged users with disabled MFA', async () => {
+    mockQueryResult = [{ id: 'user-admin', email: 'admin@nexus.ai', roles: '["admin"]' }];
+    const scan = await service.runComplianceScan('soc2_scan');
+    expect(scan.status).toBe('failed');
+    expect(scan.findings[0].rule).toBe('SOC2_PRIVILEGED_MFA_DISABLED');
+    expect(scan.findings[0].userId).toBe('user-admin');
+  });
+
+  it('should run pci_dss_scan and report findings on credit card number leaks', async () => {
+    mockQueryResult = [{ id: 'profile-1', bio: 'My card is 4111111111111111', user_id: 'user-123' }];
+    const scan = await service.runComplianceScan('pci_dss_scan');
+    expect(scan.status).toBe('failed');
+    expect(scan.findings[0].rule).toBe('PCI_DSS_CLEARTEXT_PAN_LEAK');
+    expect(scan.findings[0].profileId).toBe('profile-1');
+  });
+
+  it('should run hipaa_scan and report findings if WORM triggers are inactive', async () => {
+    mockQueryResult = []; // Less than 2 WORM triggers
+    const scan = await service.runComplianceScan('hipaa_scan');
+    expect(scan.status).toBe('failed');
+    expect(scan.findings[0].rule).toBe('HIPAA_WORM_TRIGGER_INACTIVE');
   });
 
   it('should generate an Article 30 ROPA legal report', async () => {
