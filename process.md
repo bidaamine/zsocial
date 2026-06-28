@@ -140,6 +140,7 @@ These packages prevent code duplication across apps and microservices by establi
   - **Implemented**: PostgreSQL database persistence (`ComplianceScan` and `ComplianceReport` schemas tracking scans and reports)
   - **Implemented**: Role-Based Zero-Trust Guard (`ComplianceRoleGuard` validating RS256 token signatures and checking `compliance`/`auditor` roles)
   - **Implemented**: GDPR SLA Breach Scanner (scans database deletion records to automatically detect incomplete deletions older than 30 days)
+  - **Implemented**: Advanced regulatory compliance scanners (rules validating CCPA marketing opt-outs, SOC 2 privileged user MFA status, PCI-DSS raw credit card bio leaks, and HIPAA WORM trigger coverage)
   - **Implemented**: Article 30 ROPA Legal Reporter (REST route `/compliance/report` dynamically generating formal Record of Processing Activities compliance reports)
 - **`child-safety-service`**: Minor protection
   - **Implemented**: PostgreSQL database persistence (`ParentDelegate` and `SafetyIncident` schemas tracking parent-child associations and events)
