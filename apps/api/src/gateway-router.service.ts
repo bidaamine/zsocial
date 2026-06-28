@@ -15,6 +15,8 @@ export class GatewayRouterService {
       'notify': process.env.NOTIFY_SERVICE_URL || 'http://localhost:4105',
       'profile': process.env.PROFILE_SERVICE_URL || 'http://localhost:4001',
       'family': process.env.FAMILY_SERVICE_URL || 'http://localhost:4002',
+      'content': process.env.CONTENT_SERVICE_URL || 'http://localhost:4112',
+      'messaging': process.env.MESSAGING_SERVICE_URL || 'http://localhost:4113',
     };
     return registry[serviceName];
   }
