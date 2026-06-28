@@ -23,4 +23,28 @@ export class PrivacyKafkaController {
       await this.deletionQueueService.handleServiceDeletionCompleted(data.jobId, 'consent');
     }
   }
+
+  @EventPattern('profile.user.deleted')
+  async handleProfileUserDeleted(@Payload() data: { jobId: string; userId: string }) {
+    this.logger.log(`Received profile.user.deleted event for Job: ${data.jobId}`);
+    if (data.jobId) {
+      await this.deletionQueueService.handleServiceDeletionCompleted(data.jobId, 'profile');
+    }
+  }
+
+  @EventPattern('safety.user.deleted')
+  async handleSafetyUserDeleted(@Payload() data: { jobId: string; userId: string }) {
+    this.logger.log(`Received safety.user.deleted event for Job: ${data.jobId}`);
+    if (data.jobId) {
+      await this.deletionQueueService.handleServiceDeletionCompleted(data.jobId, 'safety');
+    }
+  }
+
+  @EventPattern('social.user.deleted')
+  async handleSocialUserDeleted(@Payload() data: { jobId: string; userId: string }) {
+    this.logger.log(`Received social.user.deleted event for Job: ${data.jobId}`);
+    if (data.jobId) {
+      await this.deletionQueueService.handleServiceDeletionCompleted(data.jobId, 'social');
+    }
+  }
 }

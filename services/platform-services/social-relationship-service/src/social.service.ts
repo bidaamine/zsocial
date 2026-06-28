@@ -156,6 +156,16 @@ export class SocialService {
     );
   }
 
+  async getUserConnections(userId: string): Promise<string[]> {
+    const connections = await this.connectionRepo.find({
+      where: [
+        { requesterId: userId, status: 'accepted' },
+        { receiverId: userId, status: 'accepted' },
+      ],
+    });
+    return connections.map(conn => conn.requesterId === userId ? conn.receiverId : conn.requesterId);
+  }
+
   async deleteUserData(userId: string): Promise<void> {
     this.logger.log(`GDPR Cascade: Wiping social graph details for user ${userId}`);
     

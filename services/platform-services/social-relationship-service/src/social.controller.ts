@@ -40,6 +40,13 @@ export class SocialController {
   }
 
   @UseGuards(ZeroTrustGuard)
+  @Get('connections')
+  async getConnections(@Request() req: any) {
+    const list = await this.socialService.getUserConnections(req.user.sub);
+    return { connections: list };
+  }
+
+  @UseGuards(ZeroTrustGuard)
   @Delete('connection/:targetId')
   async disconnect(@Request() req: any, @Param('targetId') targetId: string) {
     await this.socialService.deleteConnection(req.user.sub, targetId);
