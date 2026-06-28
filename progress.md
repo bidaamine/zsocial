@@ -155,9 +155,8 @@ These packages prevent code duplication across apps and microservices by establi
   - **Implemented**: Zero-Trust access checking (`MediaAccessGuard` validating JWT signatures to restrict downloads to authorized owners)
   - **Implemented**: Secure sandboxed S3 keys (stores files under owner-isolated directories in MinIO/S3 bucket)
   - **Implemented**: Asynchronous stream scanning (reads uploaded file streams from S3/MinIO to scan for malware EICAR signatures and quarantine infected files)
-- **`media-service`**: Rich media processing
-  - Video transcoding
-  - Image optimization and thumbnail generation
+  - **Implemented**: Image optimization & resizing (utilizes Jimp pure-JS library to resize clean uploaded images and generate S3-based thumbnails)
+  - **Implemented**: Video metadata container parsing (extracts real MP4 timescale and duration box atoms directly from raw video buffers)
 - **`content-service`**: Social content
   - Post and article management
   - Feed generation
