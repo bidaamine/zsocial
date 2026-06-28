@@ -16,7 +16,8 @@ export declare class StorageProviderService {
      * Called via REST or Kafka when upload triggers processing
      */
     processUploadedFile(fileId: string): Promise<MediaRecord>;
-    private streamToString;
+    private streamToBuffer;
+    private parseMp4Duration;
     private detectMimeType;
 }
 //# sourceMappingURL=storage-provider.service.d.ts.map

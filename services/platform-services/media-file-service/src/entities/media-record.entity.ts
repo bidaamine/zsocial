@@ -24,6 +24,12 @@ export class MediaRecord {
   @Column({ default: 'pending_upload' })
   status!: string; // pending_upload, scanning, clean, quarantined
 
+  @Column({ name: 'thumbnail_s3_key', nullable: true })
+  thumbnailS3Key?: string;
+
+  @Column({ type: 'text', nullable: true })
+  metadata?: string; // JSON string
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

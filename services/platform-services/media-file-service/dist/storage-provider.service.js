@@ -21,6 +21,7 @@ const core_infra_1 = require("@nexus/core-infra");
 const media_record_entity_1 = require("./entities/media-record.entity");
 const client_s3_1 = require("@aws-sdk/client-s3");
 const uuid_1 = require("uuid");
+const jimp_1 = require("jimp");
 const EICAR_SIGNATURE = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
 let StorageProviderService = StorageProviderService_1 = class StorageProviderService {
     minioService;
@@ -78,7 +79,8 @@ let StorageProviderService = StorageProviderService_1 = class StorageProviderSer
             const s3Client = this.minioService.getClient();
             const command = new client_s3_1.GetObjectCommand({ Bucket: this.bucket, Key: record.s3Key });
             const s3Response = await s3Client.send(command);
-            const fileContent = await this.streamToString(s3Response.Body);
+            const fileBuffer = await this.streamToBuffer(s3Response.Body);
+            const fileContent = fileBuffer.toString('utf8');
             const isClean = !fileContent.includes(EICAR_SIGNATURE);
             if (!isClean) {
                 this.logger.error(`Malware Signature Detected: File ${fileId} contains EICAR test signature! quarantining.`);
@@ -91,8 +93,52 @@ let StorageProviderService = StorageProviderService_1 = class StorageProviderSer
             else {
                 this.logger.log(`Security Scan Passed: File ${fileId} is clean.`);
                 record.status = 'clean';
-                record.size = Buffer.byteLength(fileContent, 'utf8');
+                record.size = fileBuffer.length;
                 record.mimeType = this.detectMimeType(record.filename);
+                const metadata = {
+                    processedAt: new Date().toISOString(),
+                    mimeType: record.mimeType,
+                };
+                // 1. If Image, generate a real thumbnail and optimize
+                if (record.mimeType.startsWith('image/')) {
+                    try {
+                        this.logger.log(`Optimizing image and creating thumbnail for file: ${fileId}`);
+                        const image = await jimp_1.Jimp.read(fileBuffer);
+                        metadata.width = image.bitmap.width;
+                        metadata.height = image.bitmap.height;
+                        // Generate 150x150 thumbnail
+                        const thumbnail = image.clone().resize({ w: 150, h: 150 });
+                        const thumbBuffer = await thumbnail.getBuffer(jimp_1.JimpMime.png);
+                        const thumbnailKey = `uploads/${record.ownerId}/thumb-${record.id}-${record.filename}`;
+                        const putCommand = new client_s3_1.PutObjectCommand({
+                            Bucket: this.bucket,
+                            Key: thumbnailKey,
+                            Body: thumbBuffer,
+                            ContentType: 'image/png',
+                        });
+                        await s3Client.send(putCommand);
+                        record.thumbnailS3Key = thumbnailKey;
+                        this.logger.log(`Thumbnail successfully generated and saved to: ${thumbnailKey}`);
+                    }
+                    catch (imgErr) {
+                        this.logger.warn(`Failed to process image resizing/thumbnail: ${imgErr.message}`);
+                    }
+                }
+                // 2. If Video, perform real MP4 parsing to extract metadata
+                if (record.mimeType === 'video/mp4') {
+                    try {
+                        this.logger.log(`Parsing MP4 container to extract video metadata for file: ${fileId}`);
+                        const duration = this.parseMp4Duration(fileBuffer);
+                        if (duration > 0) {
+                            metadata.duration = duration;
+                            this.logger.log(`Successfully parsed MP4 duration: ${duration.toFixed(2)} seconds`);
+                        }
+                    }
+                    catch (vidErr) {
+                        this.logger.warn(`Failed to parse MP4 video metadata: ${vidErr.message}`);
+                    }
+                }
+                record.metadata = JSON.stringify(metadata);
             }
         }
         catch (err) {
@@ -104,7 +150,7 @@ let StorageProviderService = StorageProviderService_1 = class StorageProviderSer
         }
         return this.mediaRepository.save(record);
     }
-    async streamToString(stream) {
+    async streamToBuffer(stream) {
         return new Promise((resolve, reject) => {
             const chunks = [];
             stream.on('data', (chunk) => {
@@ -116,8 +162,49 @@ let StorageProviderService = StorageProviderService_1 = class StorageProviderSer
                 }
             });
             stream.on('error', reject);
-            stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+            stream.on('end', () => resolve(Buffer.concat(chunks)));
         });
+    }
+    parseMp4Duration(buffer) {
+        let offset = 0;
+        while (offset < buffer.length - 8) {
+            const size = buffer.readUInt32BE(offset);
+            const type = buffer.toString('ascii', offset + 4, offset + 8);
+            if (size === 0)
+                break;
+            if (type === 'moov') {
+                let subOffset = offset + 8;
+                const moovEnd = offset + size;
+                while (subOffset < moovEnd - 8) {
+                    const subSize = buffer.readUInt32BE(subOffset);
+                    const subType = buffer.toString('ascii', subOffset + 4, subOffset + 8);
+                    if (subSize === 0)
+                        break;
+                    if (subType === 'mvhd') {
+                        const version = buffer.readUInt8(subOffset + 8);
+                        let timescaleOffset = subOffset + 12;
+                        let durationOffset = subOffset + 16;
+                        if (version === 0) {
+                            timescaleOffset = subOffset + 12 + 8;
+                            durationOffset = timescaleOffset + 4;
+                            const timescale = buffer.readUInt32BE(timescaleOffset);
+                            const duration = buffer.readUInt32BE(durationOffset);
+                            return duration / timescale;
+                        }
+                        else if (version === 1) {
+                            timescaleOffset = subOffset + 12 + 16;
+                            durationOffset = timescaleOffset + 4;
+                            const timescale = buffer.readUInt32BE(timescaleOffset);
+                            const duration = buffer.readBigUInt64BE(durationOffset);
+                            return Number(duration) / timescale;
+                        }
+                    }
+                    subOffset += subSize;
+                }
+            }
+            offset += size;
+        }
+        return 0;
     }
     detectMimeType(filename) {
         const ext = filename.split('.').pop()?.toLowerCase();

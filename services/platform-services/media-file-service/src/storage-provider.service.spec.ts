@@ -87,4 +87,19 @@ describe('StorageProviderService', () => {
     // Attempting to download quarantined file should throw ForbiddenException
     await expect(service.generateDownloadUrl(res.fileId, 'user-1')).rejects.toThrow(ForbiddenException);
   });
+
+  it('should parse MP4 duration correctly from container box atoms', async () => {
+    // Construct a mock MP4 buffer containing a 'moov' atom and an 'mvhd' sub-atom
+    const mockMp4 = Buffer.alloc(40);
+    mockMp4.writeUInt32BE(40, 0); // size of moov
+    mockMp4.write('moov', 4);
+    mockMp4.writeUInt32BE(32, 8); // size of mvhd
+    mockMp4.write('mvhd', 12);
+    mockMp4.writeUInt8(0, 16); // version 0
+    mockMp4.writeUInt32BE(1000, 28); // timescale = 1000
+    mockMp4.writeUInt32BE(5000, 32); // duration = 5000
+
+    const duration = (service as any).parseMp4Duration(mockMp4);
+    expect(duration).toBe(5);
+  });
 });
