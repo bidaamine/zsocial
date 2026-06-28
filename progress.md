@@ -125,7 +125,7 @@ These packages prevent code duplication across apps and microservices by establi
   - **Implemented**: Zero-Trust endpoint protection (`ZeroTrustGuard` enforcing Bearer token validation)
   - **Implemented**: PII anonymization API (transparently strips sensitive keys like name, email, phone, location from payloads)
   - **Implemented**: Differential Privacy engine (adds Laplace noise to numeric metrics to prevent identity re-identification)
-  - **Implemented**: Cascading Deletion Orchestrator (publishes `gdpr.user.deletion.requested` to Kafka, consumes completion events `auth.user.deleted` and `consent.user.deleted`, and marks the overall job as completed)
+  - **Implemented**: Cascading Deletion Orchestrator (publishes events to core microservices, consumes completions, and triggers real line-by-line purges across offline database backups, CSV/JSON activity data lakes, and recommendation AI model checkpoints)
 - **`security-agent`**: Platform protection
   - **Implemented**: Zero-Trust endpoint protection (`ZeroTrustGuard` verifying RS256 JWT signatures and integrating threat scoring blocks)
   - **Implemented**: Dynamic threat risk assessment (IP traveling distance coordinate-velocity calculations and request rate monitors via Redis)
