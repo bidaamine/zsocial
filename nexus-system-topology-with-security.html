@@ -858,6 +858,14 @@
                                 "status": "foundation",
                                 "layer": 7,
                                 "desc": "Analytical warehouse for BI dashboards, corporate reporting, product analytics, financial reporting, and aggregated intelligence products."
+                },
+                {
+                                "id": "nexus_cartoon_generation_service",
+                                "label": "AI Cartoon Generation",
+                                "port": 4814,
+                                "status": "phase1",
+                                "layer": 5,
+                                "desc": "Python AI service allowing parents to generate tailored, age-appropriate educational cartoons and stories for their children following a custom theme."
                 }
 ];
 
@@ -2117,6 +2125,30 @@
                 },
                 {
                                 "source": "nexus_collective_intelligence_service",
+                                "target": "nexus_data_warehouse"
+                },
+                {
+                                "source": "nexus_api_gateway",
+                                "target": "nexus_cartoon_generation_service"
+                },
+                {
+                                "source": "nexus_family_service",
+                                "target": "nexus_cartoon_generation_service"
+                },
+                {
+                                "source": "nexus_cartoon_generation_service",
+                                "target": "nexus_child_safety_service"
+                },
+                {
+                                "source": "nexus_cartoon_generation_service",
+                                "target": "nexus_media_file_service"
+                },
+                {
+                                "source": "nexus_cartoon_generation_service",
+                                "target": "nexus_data_lake"
+                },
+                {
+                                "source": "nexus_cartoon_generation_service",
                                 "target": "nexus_data_warehouse"
                 }
 ];
