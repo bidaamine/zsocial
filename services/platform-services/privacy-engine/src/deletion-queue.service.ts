@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ClientKafka } from '@nestjs/microservices';
 import { DeletionJob } from './entities/deletion-job.entity';
+import { CascadingWipeService } from './cascading-wipe.service';
 
 @Injectable()
 export class DeletionQueueService implements OnModuleInit, OnModuleDestroy {
@@ -12,6 +13,7 @@ export class DeletionQueueService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @InjectRepository(DeletionJob)
     private readonly deletionJobRepository: Repository<DeletionJob>,
+    private readonly cascadingWipeService: CascadingWipeService,
   ) {
     this.kafkaClient = new ClientKafka({
       client: {
@@ -50,6 +52,12 @@ export class DeletionQueueService implements OnModuleInit, OnModuleDestroy {
       progress: {
         auth: false,
         consent: false,
+        profile: false,
+        safety: false,
+        social: false,
+        backups: false,
+        datalake: false,
+        models: false,
       },
     });
 
@@ -86,7 +94,27 @@ export class DeletionQueueService implements OnModuleInit, OnModuleDestroy {
     const updatedProgress = { ...job.progress, [serviceName]: true };
     job.progress = updatedProgress;
 
-    // Check if all services completed deletion
+    // Check if all online microservices completed deletion
+    const onlineServices = ['auth', 'consent', 'profile', 'safety', 'social'];
+    const onlineCompleted = onlineServices.every((srv) => updatedProgress[srv] === true);
+
+    if (onlineCompleted && !updatedProgress.backups && !updatedProgress.datalake && !updatedProgress.models) {
+      this.logger.log(`All online microservices completed. Initiating offline backups, datalake, and model purges for user ${job.userId}`);
+      
+      // Perform real offline cascades
+      await this.cascadingWipeService.purgeAllBackups(job.userId);
+      updatedProgress.backups = true;
+
+      await this.cascadingWipeService.purgeDataLake(job.userId);
+      updatedProgress.datalake = true;
+
+      await this.cascadingWipeService.purgeModelCheckpoints(job.userId);
+      updatedProgress.models = true;
+
+      job.progress = updatedProgress;
+    }
+
+    // Check if all steps (online + offline) are finished
     const allCompleted = Object.values(updatedProgress).every((val) => val === true);
     if (allCompleted) {
       job.status = 'COMPLETED';

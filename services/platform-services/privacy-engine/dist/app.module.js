@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const anonymization_service_1 = require("./anonymization.service");
 const deletion_queue_service_1 = require("./deletion-queue.service");
+const cascading_wipe_service_1 = require("./cascading-wipe.service");
 const privacy_controller_1 = require("./privacy.controller");
 const privacy_kafka_controller_1 = require("./privacy-kafka.controller");
 const deletion_job_entity_1 = require("./entities/deletion-job.entity");
@@ -34,7 +35,7 @@ exports.AppModule = AppModule = __decorate([
             typeorm_1.TypeOrmModule.forFeature([deletion_job_entity_1.DeletionJob]),
         ],
         controllers: [privacy_controller_1.PrivacyController, privacy_kafka_controller_1.PrivacyKafkaController],
-        providers: [anonymization_service_1.AnonymizationService, deletion_queue_service_1.DeletionQueueService],
-        exports: [deletion_queue_service_1.DeletionQueueService, anonymization_service_1.AnonymizationService],
+        providers: [anonymization_service_1.AnonymizationService, deletion_queue_service_1.DeletionQueueService, cascading_wipe_service_1.CascadingWipeService],
+        exports: [deletion_queue_service_1.DeletionQueueService, anonymization_service_1.AnonymizationService, cascading_wipe_service_1.CascadingWipeService],
     })
 ], AppModule);

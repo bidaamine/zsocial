@@ -19,12 +19,15 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const microservices_1 = require("@nestjs/microservices");
 const deletion_job_entity_1 = require("./entities/deletion-job.entity");
+const cascading_wipe_service_1 = require("./cascading-wipe.service");
 let DeletionQueueService = DeletionQueueService_1 = class DeletionQueueService {
     deletionJobRepository;
+    cascadingWipeService;
     logger = new common_1.Logger(DeletionQueueService_1.name);
     kafkaClient;
-    constructor(deletionJobRepository) {
+    constructor(deletionJobRepository, cascadingWipeService) {
         this.deletionJobRepository = deletionJobRepository;
+        this.cascadingWipeService = cascadingWipeService;
         this.kafkaClient = new microservices_1.ClientKafka({
             client: {
                 clientId: 'privacy-engine',
@@ -58,6 +61,12 @@ let DeletionQueueService = DeletionQueueService_1 = class DeletionQueueService {
             progress: {
                 auth: false,
                 consent: false,
+                profile: false,
+                safety: false,
+                social: false,
+                backups: false,
+                datalake: false,
+                models: false,
             },
         });
         const saved = await this.deletionJobRepository.save(job);
@@ -87,7 +96,21 @@ let DeletionQueueService = DeletionQueueService_1 = class DeletionQueueService {
         // Mark service as completed
         const updatedProgress = { ...job.progress, [serviceName]: true };
         job.progress = updatedProgress;
-        // Check if all services completed deletion
+        // Check if all online microservices completed deletion
+        const onlineServices = ['auth', 'consent', 'profile', 'safety', 'social'];
+        const onlineCompleted = onlineServices.every((srv) => updatedProgress[srv] === true);
+        if (onlineCompleted && !updatedProgress.backups && !updatedProgress.datalake && !updatedProgress.models) {
+            this.logger.log(`All online microservices completed. Initiating offline backups, datalake, and model purges for user ${job.userId}`);
+            // Perform real offline cascades
+            await this.cascadingWipeService.purgeAllBackups(job.userId);
+            updatedProgress.backups = true;
+            await this.cascadingWipeService.purgeDataLake(job.userId);
+            updatedProgress.datalake = true;
+            await this.cascadingWipeService.purgeModelCheckpoints(job.userId);
+            updatedProgress.models = true;
+            job.progress = updatedProgress;
+        }
+        // Check if all steps (online + offline) are finished
         const allCompleted = Object.values(updatedProgress).every((val) => val === true);
         if (allCompleted) {
             job.status = 'COMPLETED';
@@ -101,5 +124,6 @@ exports.DeletionQueueService = DeletionQueueService;
 exports.DeletionQueueService = DeletionQueueService = DeletionQueueService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(deletion_job_entity_1.DeletionJob)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        cascading_wipe_service_1.CascadingWipeService])
 ], DeletionQueueService);

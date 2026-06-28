@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AnonymizationService } from './anonymization.service';
 import { DeletionQueueService } from './deletion-queue.service';
+import { CascadingWipeService } from './cascading-wipe.service';
 import { PrivacyController } from './privacy.controller';
 import { PrivacyKafkaController } from './privacy-kafka.controller';
 import { DeletionJob } from './entities/deletion-job.entity';
@@ -22,7 +23,7 @@ import { PostgresModule } from '@nexus/core-infra';
     TypeOrmModule.forFeature([DeletionJob]),
   ],
   controllers: [PrivacyController, PrivacyKafkaController],
-  providers: [AnonymizationService, DeletionQueueService],
-  exports: [DeletionQueueService, AnonymizationService],
+  providers: [AnonymizationService, DeletionQueueService, CascadingWipeService],
+  exports: [DeletionQueueService, AnonymizationService, CascadingWipeService],
 })
 export class AppModule {}
