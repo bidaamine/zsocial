@@ -27,83 +27,80 @@ export class ComplianceService {
     await this.scanRepository.save(scan);
 
     const findings: any[] = [];
-    
+    // Status taxonomy:
+    //   passed       – scan ran and found no violations
+    //   failed       – scan ran and found violations
+    //   inconclusive – scan cannot be evaluated because the data it needs is not
+    //                  modelled in the current schema (documented per-scan below)
+    //   error        – scan queries threw; result is unknown. NEVER report 'passed'
+    //                  on error — a broken scan must not produce a clean bill of health.
+    let status: 'passed' | 'failed' | 'inconclusive' | 'error' = 'passed';
+
+    const queryRunner = this.dataSource.createQueryRunner();
     try {
-      const queryRunner = this.dataSource.createQueryRunner();
       await queryRunner.connect();
 
       if (scanType === 'gdpr_sla_scan') {
-        // Query database to check if any GDPR deletion jobs took longer than 30 days
+        // GDPR Art. 17: deletion jobs must complete within 30 days.
+        // Real columns are `requested_at` (@CreateDateColumn) and `user_id`.
         const activeBreaches = await queryRunner.query(`
-          SELECT * FROM deletion_jobs 
-          WHERE status != 'COMPLETED' 
-          AND created_at < NOW() - INTERVAL '30 days'
+          SELECT id, user_id, requested_at FROM deletion_jobs
+          WHERE status != 'COMPLETED'
+          AND requested_at < NOW() - INTERVAL '30 days'
         `);
-        if (activeBreaches && activeBreaches.length > 0) {
-          activeBreaches.forEach((breach: any) => {
-            findings.push({
-              rule: 'GDPR_30_DAY_SLA_BREACH',
-              severity: 'CRITICAL',
-              description: `Deletion job ${breach.id} for user ${breach.userId} has been pending for over 30 days.`,
-              jobId: breach.id,
-            });
+        for (const breach of activeBreaches || []) {
+          findings.push({
+            rule: 'GDPR_30_DAY_SLA_BREACH',
+            severity: 'CRITICAL',
+            description: `Deletion job ${breach.id} for user ${breach.user_id} has been pending for over 30 days.`,
+            jobId: breach.id,
           });
         }
       } else if (scanType === 'ccpa_scan') {
-        // Query user preferences for opt-out of data selling but active marketing
-        const optOutViolations = await queryRunner.query(`
-          SELECT * FROM user_preferences 
-          WHERE allow_sharing = false AND marketing_emails = true
-        `);
-        if (optOutViolations && optOutViolations.length > 0) {
-          optOutViolations.forEach((pref: any) => {
-            findings.push({
-              rule: 'CCPA_OPT_OUT_VIOLATION',
-              severity: 'HIGH',
-              description: `User preference ID ${pref.id} has allowSharing = false but marketingEmails = true.`,
-              prefId: pref.id,
-            });
-          });
-        }
+        // CCPA opt-out enforcement requires cross-referencing consent against actual
+        // marketing activity. Notifications carry no campaign/type field, so a marketing
+        // send cannot be distinguished from transactional mail. This scan is therefore
+        // not evaluable against the current schema without producing false positives.
+        findings.push({
+          rule: 'CCPA_SCAN_INCONCLUSIVE',
+          severity: 'INFO',
+          description:
+            'CCPA opt-out enforcement is not evaluable: no marketing-activity signal is modelled to cross-reference against consent_records.allow_marketing.',
+        });
+        status = 'inconclusive';
       } else if (scanType === 'soc2_scan') {
-        // Verify all privileged admin/compliance users have MFA enabled
-        const privilegedMfaDisabled = await queryRunner.query(`
-          SELECT u.id, u.email, u.roles FROM users u 
-          LEFT JOIN mfa_configs m ON u.id = m.user_id 
-          WHERE (u.roles LIKE '%admin%' OR u.roles LIKE '%compliance%' OR u.roles LIKE '%auditor%')
-          AND (m.id IS NULL OR m.is_enabled = false)
-        `);
-        if (privilegedMfaDisabled && privilegedMfaDisabled.length > 0) {
-          privilegedMfaDisabled.forEach((user: any) => {
-            findings.push({
-              rule: 'SOC2_PRIVILEGED_MFA_DISABLED',
-              severity: 'CRITICAL',
-              description: `Privileged user ${user.email} (roles: ${user.roles}) does not have MFA enabled.`,
-              userId: user.id,
-            });
-          });
-        }
+        // SOC 2 privileged-user MFA check requires a persisted RBAC/roles model.
+        // Roles are currently a JWT claim only (see auth-service generateTokenPair) and
+        // are NOT stored on the users table, so privileged users cannot be identified
+        // from the database. Reported honestly as inconclusive rather than passed.
+        findings.push({
+          rule: 'SOC2_SCAN_INCONCLUSIVE',
+          severity: 'INFO',
+          description:
+            'SOC 2 privileged-user MFA check is not evaluable: roles are a JWT claim only and are not persisted on the users table.',
+        });
+        status = 'inconclusive';
       } else if (scanType === 'pci_dss_scan') {
-        // Check for cleartext credit card Primary Account Numbers in bios
+        // PCI-DSS: detect cleartext credit-card PANs in free-text profile bios.
+        // Real table `user_profiles`, real column `bio`.
         const cardLeaks = await queryRunner.query(`
-          SELECT id, bio, user_id FROM user_profiles 
+          SELECT id, user_id FROM user_profiles
           WHERE bio ~ '\\b[3-6][0-9]{12,15}\\b'
         `);
-        if (cardLeaks && cardLeaks.length > 0) {
-          cardLeaks.forEach((profile: any) => {
-            findings.push({
-              rule: 'PCI_DSS_CLEARTEXT_PAN_LEAK',
-              severity: 'CRITICAL',
-              description: `Profile bio for user ${profile.user_id} contains a cleartext credit card pattern.`,
-              profileId: profile.id,
-            });
+        for (const profile of cardLeaks || []) {
+          findings.push({
+            rule: 'PCI_DSS_CLEARTEXT_PAN_LEAK',
+            severity: 'CRITICAL',
+            description: `Profile bio for user ${profile.user_id} contains a cleartext credit card pattern.`,
+            profileId: profile.id,
           });
         }
       } else if (scanType === 'hipaa_scan') {
-        // Check triggers on audit logs to verify WORM compliance for security/medical logs
+        // HIPAA: verify WORM triggers are active on the audit tables. Real trigger names
+        // created by audit-observability-service (prevent_*_modifications).
         const triggers = await queryRunner.query(`
-          SELECT tgname FROM pg_trigger 
-          WHERE tgname IN ('audit_logs_worm_trigger', 'ai_decisions_worm_trigger')
+          SELECT tgname FROM pg_trigger
+          WHERE tgname IN ('prevent_audit_logs_modifications', 'prevent_ai_decisions_modifications')
         `);
         if (!triggers || triggers.length < 2) {
           findings.push({
@@ -112,21 +109,34 @@ export class ComplianceService {
             description: `WORM triggers are not fully active on audit tables. Count found: ${triggers ? triggers.length : 0}`,
           });
         }
+      } else {
+        findings.push({
+          rule: 'UNKNOWN_SCAN_TYPE',
+          severity: 'INFO',
+          description: `Unknown scan type '${scanType}'. No rules executed.`,
+        });
+        status = 'inconclusive';
       }
 
-      await queryRunner.release();
-
-      if (findings.length > 0) {
-        scan.status = 'failed';
-      } else {
-        scan.status = 'passed';
+      // Only a scan that actually ran its rules can be marked failed/passed.
+      if (status === 'passed' && findings.length > 0) {
+        status = 'failed';
       }
     } catch (err: any) {
-      this.logger.warn(`Scan queries warning (database table might be empty or missing): ${err.message}`);
-      // Gracefully pass scan if tables are not initialized yet
-      scan.status = 'passed';
+      // A scan whose queries fail is reported as 'error' — NEVER 'passed'. Silently
+      // passing a broken scan would fabricate a clean compliance result.
+      this.logger.error(`Compliance scan '${scanType}' failed to execute: ${err.message}`);
+      status = 'error';
+      findings.push({
+        rule: 'SCAN_EXECUTION_ERROR',
+        severity: 'HIGH',
+        description: `Scan could not be completed due to a database error: ${err.message}`,
+      });
+    } finally {
+      await queryRunner.release();
     }
 
+    scan.status = status;
     scan.findings = findings;
     return this.scanRepository.save(scan);
   }
@@ -137,10 +147,16 @@ export class ComplianceService {
     let payload: any = {};
 
     if (reportType === 'ROPA') {
-      // Formal Article 30 GDPR ROPA (Record of Processing Activities) schema template
+      // Article 30 ROPA. The narrative sections below are a fixed legal template, but
+      // the quantitative fields are derived live from the database so the report
+      // reflects the platform's actual current state rather than static placeholders.
+      const liveMetrics = await this.collectRopaMetrics();
+
       payload = {
         organization: 'Zad Social Platform Services',
         articleComplianceReference: 'Article 30 GDPR Compliance Report',
+        generatedAt: new Date().toISOString(),
+        liveMetrics,
         dataControllerRepresentative: 'DPO Office (dpo@zad-social.com)',
         purposesOfProcessing: [
           'Identity and secure user authentication (auth-service)',
@@ -172,6 +188,40 @@ export class ComplianceService {
     });
 
     return this.reportRepository.save(report);
+  }
+
+  /**
+   * Derives the quantitative portion of the ROPA from live data. Each metric is
+   * queried defensively — a missing table yields `null` (unknown) rather than a
+   * fabricated number, so the report never overstates what is actually known.
+   */
+  private async collectRopaMetrics(): Promise<Record<string, number | null>> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    const safeCount = async (sql: string): Promise<number | null> => {
+      try {
+        const rows = await queryRunner.query(sql);
+        return rows?.[0]?.count !== undefined ? Number(rows[0].count) : null;
+      } catch (err: any) {
+        this.logger.warn(`ROPA metric query failed (${err.message})`);
+        return null;
+      }
+    };
+
+    try {
+      await queryRunner.connect();
+      return {
+        totalDataSubjects: await safeCount('SELECT COUNT(*)::int AS count FROM users'),
+        pendingDeletionRequests: await safeCount(
+          "SELECT COUNT(*)::int AS count FROM deletion_jobs WHERE status != 'COMPLETED'",
+        ),
+        completedDeletionRequests: await safeCount(
+          "SELECT COUNT(*)::int AS count FROM deletion_jobs WHERE status = 'COMPLETED'",
+        ),
+        recordedConsentRecords: await safeCount('SELECT COUNT(*)::int AS count FROM consent_records'),
+      };
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async getScan(id: string): Promise<ComplianceScan | null> {

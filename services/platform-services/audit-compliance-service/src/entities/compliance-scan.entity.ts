@@ -9,7 +9,7 @@ export class ComplianceScan {
   scanType!: string; // gdpr_sla_scan, consent_violation_scan
 
   @Column({ default: 'running' })
-  status!: string; // running, passed, failed
+  status!: string; // running, passed, failed, inconclusive, error
 
   @Column({ type: 'jsonb', nullable: true })
   findings!: any;
