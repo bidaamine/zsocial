@@ -22,7 +22,7 @@ export class MediaRecord {
   size!: number;
 
   @Column({ default: 'pending_upload' })
-  status!: string; // pending_upload, scanning, clean, quarantined
+  status!: string; // pending_upload, scanning, clean, quarantined, scan_failed
 
   @Column({ name: 'thumbnail_s3_key', nullable: true })
   thumbnailS3Key?: string;

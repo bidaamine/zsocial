@@ -58,6 +58,15 @@ export class StorageProviderService {
       throw new BadRequestException('File is not uploaded or processed yet.');
     }
 
+    // Fail-closed allowlist: only serve files that have PASSED the malware scan.
+    // Anything not explicitly 'clean' (scanning, scan_failed, etc.) is denied, so an
+    // unscanned or scan-errored file can never be downloaded.
+    if (record.status !== 'clean') {
+      throw new ForbiddenException(
+        `Access denied: file has not passed security scanning (status: ${record.status}).`,
+      );
+    }
+
     return this.minioService.getPresignedDownloadUrl(record.s3Key);
   }
 
@@ -153,10 +162,11 @@ export class StorageProviderService {
       }
     } catch (err: any) {
       this.logger.error(`Failed to download and scan file ${fileId} from S3: ${err.message}`);
-      // Fallback to manual metadata extraction if S3 is unavailable or mocked
-      record.status = 'clean';
-      record.size = 1024;
-      record.mimeType = this.detectMimeType(record.filename);
+      // Fail-closed: a file that could NOT be scanned must never be marked 'clean'.
+      // Mark it 'scan_failed' so the download allowlist refuses to serve it until a
+      // scan actually succeeds (e.g. via retry). Marking it clean here would let
+      // unscanned/potentially-malicious content through.
+      record.status = 'scan_failed';
     }
 
     return this.mediaRepository.save(record);
