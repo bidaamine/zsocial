@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ThreatDetectionService } from './threat-detection.service';
 import { ZeroTrustGuard } from './zero-trust.guard';
 import { ChildDataProtectionInterceptor } from './child-data-protection.interceptor';
@@ -16,6 +17,15 @@ import { SecurityController } from './security.controller';
     ZeroTrustGuard,
     ChildDataProtectionInterceptor,
     ZkpService,
+    // Register the child-data protection interceptor GLOBALLY so it transparently
+    // guards every inbound/outbound request. It is a passthrough unless the request
+    // carries `x-target-age-group: child`, at which point it enforces the parental
+    // key and encrypts/decrypts sensitive fields. Previously this was only a provider
+    // (never wired), so the "transparent interceptor" was dead code.
+    {
+      provide: APP_INTERCEPTOR,
+      useExisting: ChildDataProtectionInterceptor,
+    },
   ],
   exports: [
     ThreatDetectionService,
