@@ -92,6 +92,13 @@ export class NotificationDispatcherService {
         record.status = 'sent';
         record.sentAt = new Date();
         record.errorMessage = undefined;
+        // Record whether this was a real send or a simulated one (no transport wired).
+        record.simulated = (result as any).simulated === true;
+        if (record.simulated) {
+          this.logger.warn(
+            `Notification ID ${record.id} marked 'sent' but delivery was SIMULATED (no real ${record.channel} transport configured).`,
+          );
+        }
       } else {
         throw new Error('Provider failed to accept dispatch request');
       }

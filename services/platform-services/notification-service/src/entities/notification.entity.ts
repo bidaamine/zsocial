@@ -27,6 +27,12 @@ export class Notification {
   @Column({ name: 'retry_count', default: 0 })
   retryCount!: number;
 
+  // True when the "delivery" was only simulated because no real transport
+  // (SMTP / Twilio / FCM) is configured. Keeps history honest about what was
+  // actually sent versus merely logged.
+  @Column({ default: false })
+  simulated!: boolean;
+
   @Column({ name: 'error_message', nullable: true })
   errorMessage?: string;
 
