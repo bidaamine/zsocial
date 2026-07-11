@@ -1,240 +1,185 @@
-# NEXUS AI Monorepo - Progress Tracker
+# NEXUS / Zad Social — Progress Tracker (Corrected & Verified)
 
-This document tracks all the services, shared packages, and infrastructure components we have scaffolded and implemented in the project. It serves as a living record and will be updated as we continue to build out the ecosystem.
+This document tracks what is **actually implemented** in the repository, verified by reading
+the source and running each service's typecheck (`tsc --noEmit`) and test suite. It replaces an
+earlier version that listed aspirational scope as if delivered.
+
+> **How to read this:** the PDF vision (`Zad Social Next generation…pdf`) describes 15 AI modules,
+> a 7-layer architecture, mobile + web apps, and an AR/VR layer. That is the *target*, not the
+> current state. This file distinguishes what exists in code from what is only a named folder.
+
+---
+
+## 📊 Reality Summary (as of this revision)
+
+| Area | Planned | Has real code | Empty scaffold |
+|---|---|---|---|
+| Platform services | 32 | **13** | 19 |
+| AI services | 17 | **1** (`ai-model-router`) | 16 |
+| Apps | 8 | **3** (backend gateways) | 5 |
+| **Total services** | 49 | **14** | 35 |
+
+**Two things to keep front-of-mind:**
+- **The AI layer is essentially unbuilt.** Of 17 AI services, only `ai-model-router` has code. The
+  flagship **AI Life Orchestrator** (`ai-orchestrator`) and every domain AI (health, education,
+  emotion, digital-twin, memory, predictive-crisis, etc.) are empty directories.
+- **There is no end-user frontend.** `apps/web` and `apps/mobile` are empty. Only backend
+  gateways (`apps/api`, `apps/bff-gateway`, `apps/realtime-gateway`) contain code. The entire
+  UX/UI design system in the PDF is not started.
+
+### Status legend
+- ✅ **Verified** — real logic; compiles and unit tests pass.
+- 🟡 **Partial** — works but with a documented caveat or simulated leaf.
+- 🧱 **Scaffold only** — directory/README exists, **no source code**.
+- ❌ **Not started.**
 
 ---
 
 ## 🏗️ Local Infrastructure (Docker Compose)
-*Located in `infra/local/docker-compose.yml`*
+*Defined in `infra/local/docker-compose.yml` — declared, not verified running in this audit.*
 
-- **PostgreSQL**: Core relational database
-  - User data storage
-  - Core entities mapping
-  - Service configurations
-- **TimescaleDB**: Time-series database
-  - Metric aggregation
-  - Analytics event streams
-- **Neo4j**: Graph database
-  - Social connection mapping
-  - Relationship traversal
-- **Redis**: In-memory caching
-  - Real-time session management
-  - Consent caching
-- **Apache Kafka & Zookeeper**: Distributed event streaming
-  - Asynchronous microservice messaging
-  - Real-time event routing
-- **Milvus (Vector DB)**: AI vector database
-  - AI embedding storage
-  - Lightning-fast similarity search
-  - **Implemented**: Fixed crashing and configured for standalone embedded ETCD
-- **MinIO**: Local object storage
-  - S3-compatible API
-  - Raw media and asset hosting
-- **Apache Flink**: Stream processing engine
-  - Real-time complex event processing
-- **ClickHouse**: OLAP database
-  - Column-oriented analytics
-  - Lightning-fast dashboard queries
+PostgreSQL · TimescaleDB · Neo4j · Redis · Kafka + Zookeeper · Milvus · MinIO · Flink · ClickHouse.
+Note: all coded services hardcode **PostgreSQL on `localhost:5434`, DB `nexus_db`** and share it
+(cross-service SQL queries assume this single shared database).
 
 ---
 
-## 📦 Shared Packages
-*Located in `packages/`*
-
-These packages prevent code duplication across apps and microservices by establishing a single source of truth.
-
-- **`api-contracts`**: REST API contracts
-  - OpenAPI/Swagger specifications
-  - Shared interface contracts
-- **`config`**: Standardized configurations
-  - Environment variable validation
-  - Setup scripts
-- **`constants`**: Global application maps
-  - Core enums
-  - Static variables
-- **`core-infra`**: Core infrastructure definitions
-  - **Implemented**: `PostgresModule` using TypeORM for standard database connections
-  - **Implemented**: Centralized exports for Redis, Kafka, Neo4j, and MinIO modules
-- **`design-tokens`**: UI/UX design tokens
-  - Colors and typography definitions
-  - Tailwind CSS mappings
-- **`eslint-config`**: Code styling
-  - Monorepo-wide ESLint rules
-- **`event-contracts`**: Async communication contracts
-  - Kafka topic definitions
-  - Event payload schemas
-- **`localization`**: Shared translations
-  - i18n translation strings
-  - Locales and formatting rules
-- **`permissions`**: Access Control
-  - Role-Based Access Control (RBAC) definitions
-  - Security policies
-- **`sdk`**: Internal SDKs
-  - Auto-generated service SDKs
-  - Typed service-to-service communication
-- **`shared-types`**: TypeScript types
-  - Common data models
-  - Request/Response DTOs
-- **`tsconfig`**: TypeScript compiler configs
-  - Base, nest, next, and react configurations
-- **`validators`**: Shared validation logic
-  - class-validator decorators
-  - Zod schemas for client/server inputs
+## 📦 Shared Packages (`packages/`)
+- ✅ **`core-infra`** — real `PostgresModule` (TypeORM), plus `Redis` (ioredis), `Kafka`
+  (@nestjs/microservices), `Neo4j` (neo4j-driver), and `MinIO` (@aws-sdk/client-s3, presigned URLs) modules. Used by the coded services.
+- 🧱 Others (`api-contracts`, `config`, `constants`, `design-tokens`, `eslint-config`,
+  `event-contracts`, `localization`, `permissions`, `sdk`, `shared-types`, `tsconfig`,
+  `validators`) — present as workspace packages; treat as scaffolding unless a service imports them.
 
 ---
 
-## 🚀 Platform Services
-*Located in `services/platform-services/`*
+## 🚀 Platform Services (`services/platform-services/`)
 
 ### Core & Identity
-- **`auth-service`**: Central authentication and identity
-  - **Implemented**: TypeORM Database Integration (`User`, `MfaConfig`, `Passkey`, `OAuthProfile`, `RefreshToken`)
-  - **Implemented**: Persistent Key Management (`KeysService` for `RS256` JWT asymmetric keys)
-  - **Implemented**: Credentials Authentication (Email/Password registration, bcrypt hashing, and verification)
-  - **Implemented**: Refresh Token Rotation (RTR) & Session Management (cascade token revoking on logout)
-  - **Implemented**: Active session listing & selective revocation (remote logout of specific sessions or logout of other devices)
-  - **Implemented**: Trusted device log management (`UserDevice` entity tracking fingerprints and IPs)
-  - **Implemented**: New device login anomaly alerts (emits `dispatch_notification` alert via Kafka on new device logins)
-  - **Implemented**: Security Protections (failed login attempt counter, 15-minute account lockout)
-  - **Implemented**: Distributed Biometrics (Redis-backed WebAuthn challenge storage)
-  - **Implemented**: Endpoint Guarding (JwtAuthGuard, RbacGuard, and `@Roles()` decorator)
-  - **Implemented**: API Gateway Realignment (ZeroTrustGuard RS256 verification via dynamic public key fetching and 24h caching)
-  - **Implemented**: TOTP Multi-Factor Authentication (QR codes, secure recovery codes via crypto.randomBytes, and otplib integration)
-  - **Implemented**: Biometric Passkeys (WebAuthn/FIDO2 via `@simplewebauthn` for FaceID, TouchID, Security Keys)
-  - **Implemented**: OAuth2 Social Login (Google Strategy via `@nestjs/passport` for SSO)
-  - **Implemented**: Kafka Event Streaming (publishing auth lifecycle events to Kafka)
-  - **Implemented**: Audit Logging Integration (resilient telemetry logging to audit-observability-service)
-  - **Implemented**: Consent & Privacy Integration (resilient user consent record seeding on registration)
-- **`user-profile-service`**: User data management
-  - **Implemented**: PostgreSQL database persistence (`UserProfile` and `UserPreferences` schemas tracking biographical data and settings)
-  - **Implemented**: Zero-Trust security validation (`ZeroTrustGuard` verifying user scope ownership of profile details)
-  - **Implemented**: Dynamic age-grouping (calculates `child` | `teen` | `adult` dynamically based on birthDate)
-  - **Implemented**: Avatar media linking (validates that upload file is clean and owned by user in media-file-service)
-  - **Implemented**: Kafka lifecycle triggers (seeds profile on registration, deletes profile on GDPR requests)
-- **`consent-service`**: GDPR and consents
-  - **Implemented**: PostgreSQL database persistence (`ConsentRecord` schema mapping user IDs to consent choices)
-  - **Implemented**: Zero-Trust security validation (`ZeroTrustGuard` verifying RS256 JWTs using public keys from auth-service)
-  - **Implemented**: Kafka asynchronous seeding (`auth.user.registered` event consumer automatically initializes consent records on user registration)
-  - **Implemented**: Real-time caching layer (Redis-backed caching with automatic TTL eviction for consent verification)
-  - **Implemented**: Real-time event propagation (publishes `consent.user.updated` Kafka events on consent changes)
-  - **Implemented**: GDPR cascade handler (deletes consent record on `gdpr.user.deletion.requested` and reports completion)
+- ✅ **`auth-service`** (28 files) — genuinely the richest service. Real bcrypt credentials,
+  RS256 key management, refresh-token rotation, session listing/revocation, trusted-device log,
+  new-device Kafka alert, lockout, TOTP MFA (otplib+qrcode), WebAuthn passkeys (@simplewebauthn),
+  Google OAuth. Kafka consumer (`gdpr.user.deletion.requested`) is wired via hybrid `main.ts`.
+  ⚠️ **No unit tests** — the most complex service is untested. Roles are a **JWT claim only**,
+  not persisted to the DB.
+- ✅ **`user-profile-service`** — TypeORM `UserProfile`/`UserPreferences`, ZeroTrust scope guard,
+  dynamic age-grouping. **Fixed:** Kafka consumers (`auth.user.registered`, GDPR delete) are now
+  wired (were dead); avatar integrity check now **fails closed** (was silently skipped on error).
+- ✅ **`consent-service`** — TypeORM `ConsentRecord`, ZeroTrust guard, Kafka seeding on
+  registration, Redis TTL cache, GDPR cascade. Correctly wired hybrid microservice.
 
 ### Privacy, Security & Compliance
-- **`privacy-engine`**: Data privacy protections
-  - **Implemented**: PostgreSQL database persistence (`DeletionJob` schema tracking deletion status and microservice progress)
-  - **Implemented**: Zero-Trust endpoint protection (`ZeroTrustGuard` enforcing Bearer token validation)
-  - **Implemented**: PII anonymization API (transparently strips sensitive keys like name, email, phone, location from payloads)
-  - **Implemented**: Differential Privacy engine (adds Laplace noise to numeric metrics to prevent identity re-identification)
-  - **Implemented**: Cascading Deletion Orchestrator (publishes events to core microservices, consumes completions, and triggers real line-by-line purges across offline database backups, CSV/JSON activity data lakes, and recommendation AI model checkpoints)
-- **`security-agent`**: Platform protection
-  - **Implemented**: Zero-Trust endpoint protection (`ZeroTrustGuard` verifying RS256 JWT signatures and integrating threat scoring blocks)
-  - **Implemented**: Dynamic threat risk assessment (IP traveling distance coordinate-velocity calculations and request rate monitors via Redis)
-  - **Implemented**: REST Service Controllers (HTTP endpoints `/security/assess-risk`, `/encrypt-child`, and `/decrypt-child` for microservice integration)
-  - **Implemented**: Zero-Knowledge (ZKP) symmetric GCM simulation (transparent NestJS Interceptor encrypting inbound child cleartext fields and decrypting outbound payloads using parent-held cryptographic keys)
-- **`audit-observability-service`**: System telemetry
-  - **Implemented**: PostgreSQL database persistence (`AuditLog` and `AiDecision` entities)
-  - **Implemented**: WORM database-level trigger protection (PostgreSQL functions blocking `UPDATE` and `DELETE` queries directly on SQL driver connection level)
-  - **Implemented**: WORM ORM-level gatekeepers (TypeORM `EntitySubscriber` classes throwing validation exceptions on entity modifications/removals)
-  - **Implemented**: EU AI Act Compliance Logs (AI model inference explainability endpoints `/telemetry/ai-decision` recording model inputs, outputs, confidence score, and clear explanations)
-- **`audit-compliance-service`**: Legal compliance
-  - **Implemented**: PostgreSQL database persistence (`ComplianceScan` and `ComplianceReport` schemas tracking scans and reports)
-  - **Implemented**: Role-Based Zero-Trust Guard (`ComplianceRoleGuard` validating RS256 token signatures and checking `compliance`/`auditor` roles)
-  - **Implemented**: GDPR SLA Breach Scanner (scans database deletion records to automatically detect incomplete deletions older than 30 days)
-  - **Implemented**: Advanced regulatory compliance scanners (rules validating CCPA marketing opt-outs, SOC 2 privileged user MFA status, PCI-DSS raw credit card bio leaks, and HIPAA WORM trigger coverage)
-  - **Implemented**: Article 30 ROPA Legal Reporter (REST route `/compliance/report` dynamically generating formal Record of Processing Activities compliance reports)
-- **`child-safety-service`**: Minor protection
-  - **Implemented**: PostgreSQL database persistence (`ParentDelegate` and `SafetyIncident` schemas tracking parent-child associations and events)
-  - **Implemented**: Dynamic Age Gate validation (custom `@MinAge()` decorator and `AgeGateGuard` validating profile birthdays)
-  - **Implemented**: COPPA consent controls (parental privacy control enforcements)
-  - **Implemented**: Heuristic content scanning (inspects texts for grooming risks and cyberbullying and auto-alerts parents)
-  - **Implemented**: GDPR cascade deletion handler (erases family ties and incident lists on right to be forgotten commands)
+- ✅ **`privacy-engine`** — real Laplace-noise differential privacy, PII anonymization, and
+  **real file-I/O** cascade wipes across `./backups`, `./datalake`, `./models` checkpoint dirs.
+  Kafka consumers correctly wired.
+- 🟡 **`security-agent`** — real RS256 ZeroTrust guard + threat-score block; real Haversine
+  impossible-travel math; real AES-256-GCM child-data crypto. **Fixed:** the child-data protection
+  interceptor is now registered globally via `APP_INTERCEPTOR` (was dead code). ⚠️ Caveats:
+  geo-coordinates are **hardcoded/hashed, not real GeoIP**; "ZKP" is symmetric AES-GCM (labeled a
+  simulation in code, not an actual zero-knowledge proof).
+- ✅ **`audit-observability-service`** — real WORM protection via **actual PL/pgSQL triggers**
+  (`prevent_audit_logs_modifications`, `prevent_ai_decisions_modifications`) **and** a TypeORM
+  `EntitySubscriber`; EU-AI-Act AI-decision explainability endpoint.
+- ✅ **`audit-compliance-service`** — **Fixed extensively:** scanners no longer silently report
+  `passed` on error (now `error`/`inconclusive`); GDPR-SLA and HIPAA-WORM scanners corrected to the
+  **real columns/trigger names** and now actually detect; PCI-DSS PAN scan works; CCPA & SOC2
+  honestly report **`inconclusive`** (the data they need — marketing-activity signal / persisted
+  roles — isn't modelled). ROPA report now includes **live DB-derived metrics**. 10/10 tests pass.
+- ✅ **`child-safety-service`** — `@MinAge()` + `AgeGateGuard`, heuristic grooming/cyberbullying
+  scan with Kafka incident + parent alert. **Fixed:** age gate now **fails closed** (was fail-open);
+  GDPR Kafka consumer now wired (was dead). ⚠️ COPPA consent flag is stored but not yet enforced;
+  parent email is a placeholder.
 
 ### Data & Content
-- **`media-file-service`**: Raw file management
-  - **Implemented**: PostgreSQL database persistence (`MediaRecord` schema mapping file IDs to owner accounts, keys, and status tags)
-  - **Implemented**: Zero-Trust access checking (`MediaAccessGuard` validating JWT signatures to restrict downloads to authorized owners)
-  - **Implemented**: Secure sandboxed S3 keys (stores files under owner-isolated directories in MinIO/S3 bucket)
-  - **Implemented**: Asynchronous stream scanning (reads uploaded file streams from S3/MinIO to scan for malware EICAR signatures and quarantine infected files)
-  - **Implemented**: Image optimization & resizing (utilizes Jimp pure-JS library to resize clean uploaded images and generate S3-based thumbnails)
-  - **Implemented**: Video metadata container parsing (extracts real MP4 timescale and duration box atoms directly from raw video buffers)
-- **`content-service`**: Social content
-  - Post and article management
-  - Feed generation
-  - User-generated text processing
-- **`search-service`**: Search engine
-  - ElasticSearch and Vector DB indexing
-  - Complex query serving
+- 🟡 **`media-file-service`** — real EICAR malware stream scan, Jimp thumbnails, hand-rolled MP4
+  atom parsing. **Fixed:** download path is now a **fail-closed allowlist** (only `clean` files
+  served); a scan that errors is marked `scan_failed`, never faked as `clean`.
+- ✅ **`content-service`** — posts/comments/likes, basic feed generation (HTTP to social service),
+  ZeroTrust guards. **Fixed:** GDPR Kafka consumer now wired (was dead).
+- 🟡 **`messaging-service`** — real **AES-256-GCM** message encryption. **Fixed:** GDPR Kafka
+  consumer wired; **"AI Twin Message Drafting" now genuinely calls `ai-model-router`** to generate
+  drafts (resilient fallback to raw intent when the router is down; `aiGenerated` flag records
+  which path ran). ⚠️ "threat-protection metadata" is still just `isLateNight` + `messageLength`.
+- 🧱 **`search-service`**, **`media-service`** (duplicate of media-file), **`event-bus-service`** — no code.
 
 ### Communication & Social
-- **`social-relationship-service`**: Network dynamics
-  - **Implemented**: PostgreSQL database persistence (`UserConnection` schema tracking relationship statuses)
-  - **Implemented**: Neo4j Graph DB Integration (synchronizes user nodes and connection relationships in real-time)
-  - **Implemented**: Cypher Graph traversals (executes Cypher queries to compute mutual connection sets and friends-of-friends recommendation listings)
-  - **Implemented**: Zero-Trust security guards (`ZeroTrustGuard` verifying RS256 token contexts)
-  - **Implemented**: GDPR cascade deletion handler (detaches and prunes user graph nodes and relationship entities on delete commands)
-- **`family-service`**: Household management
-  - Family tree connections
-  - Delegate/guardian permissions
-- **`messaging-service`**: Chat and direct messaging
-  - Direct message (DM) delivery
-  - Group chats
-  - Inbox persistence
-- **`notification-service`**: Alerts and dispatching
-  - **Implemented**: PostgreSQL database persistence (`Notification` schema tracking dispatch history)
-  - **Implemented**: Template interpolation engine (compiling dynamic welcome, MFA, and safeguarding formats)
-  - **Implemented**: Channel-routing logic (email, SMS, and push notifications)
-  - **Implemented**: Resilient automatic retry queues (queues and retries failed delivery attempts)
-- **`event-bus-service`**: Message routing
-  - Centralized Kafka event processing
-  - Event routing utilities
+- ✅ **`social-relationship-service`** — TypeORM `UserConnection`, real Neo4j `MERGE`/`DETACH DELETE`
+  sync, real Cypher mutual-connections / friends-of-friends. **Fixed:** GDPR Kafka consumer wired.
+- 🟡 **`notification-service`** — real template engine, channel routing, retry queue. **Fixed:**
+  the `dispatch_notification` Kafka consumer (its **primary** entrypoint) is now wired; the
+  email/SMS/push providers now **transparently declare `simulated: true`** (no real SMTP/Twilio/FCM
+  transport is wired — they log a WARN instead of pretending a real send). Notifications record a
+  `simulated` flag so history is honest.
+- 🧱 **`family-service`** — no code.
 
-### Business & Growth
-- **`analytics-service`**: Business intelligence
-  - Product usage data aggregation
-  - Platform metrics tracking
-- **`billing-service`**: Payments and subscriptions
-  - Stripe/Payment gateway integration
-  - Invoicing generation
-- **`branding-marketing-service`**: Corporate marketing
-  - Dynamic branding and campaigns
-  - Corporate whitelabeling
-- **`business-growth-service`**: B2B growth tools
-  - CRM hooks
-  - Lead generation pipelines
-- **`company-service`**: Organization management
-  - B2B multi-tenant architecture
-  - Corporate hierarchy trees
-- **`hr-talent-service`**: Recruitment tools
-  - Corporate hiring modules
-  - Talent matching and HR integrations
-- **`marketplace-service`**: Digital goods
-  - Marketplace listings
-  - eCommerce transactions
-- **`personal-finance-service`**: User wallets
-  - Internal currency tracking
-  - Fintech integrations
+### Business & Growth — 🧱 all scaffold only (no code)
+`analytics-service`, `billing-service`, `branding-marketing-service`, `business-growth-service`,
+`company-service`, `hr-talent-service`, `marketplace-service`, `personal-finance-service`.
 
-### Specialized Domains
-- **`education-service`**: Learning platform
-  - Course and learning path management
-  - Ed-tech modules
-- **`fitness-life-service`**: Health tracking
-  - Apple Health and Google Fit API integrations
-  - Workout and lifestyle goal tracking
-- **`health-service`**: Medical data
-  - HIPPA/GDPR-compliant health record storage
-  - Tele-health data management
+### Specialized Domains — 🧱 all scaffold only
+`education-service`, `fitness-life-service`, `health-service`.
 
-### Platform Operations
-- **`feature-flag-service`**: Configuration
-  - Dynamic config management
-  - A/B testing toggles
-- **`integration-service`**: Third-party hooks
-  - Webhook dispatchers
-  - Third-party API adapters
-- **`operations-command-service`**: Administrative tools
-  - Back-office tooling
-  - User ban management
-  - Platform-wide killswitches
-- **`realtime-service`**: Websocket backend
-  - Internal backend logic for the Realtime WebSocket Gateway
+### Platform Operations — 🧱 all scaffold only
+`feature-flag-service`, `integration-service`, `operations-command-service`, `realtime-service`.
+
+---
+
+## 🤖 AI Services (`services/ai-services/`)
+
+- ✅ **`ai-model-router`** (Python / FastAPI, 12 files, **21 passing tests**) — the most complete
+  and best-tested component in the repo. See dedicated section below.
+- 🧱 **All 16 other AI services have no code**, including the ones the vision is built around:
+  `ai-orchestrator` (the "AI Life Orchestrator"), `ai-health`, `ai-education`, `ai-emotion`,
+  `ai-digital-twin`, `ai-memory`, `ai-predictive-crisis`, `ai-collective-intelligence`,
+  `ai-family-safety`, `ai-fitness-life`, `ai-finance-business-growth`, `ai-hr-talent`,
+  `ai-marketing`, `ai-operations`, `ai-translator-cultural`, `ai-immersive-reality`.
+
+### `ai-model-router` — detail
+- ✅ 4-axis classifier (privacy → domain fine-tuned → latency → task/cost table).
+- ✅ Multi-provider HTTP clients: OpenAI, Anthropic, Google Gemini, with automatic failover.
+- ✅ Per-request cost accounting, load balancer with health tracking, multi-model chain pipelines,
+  edge-model registry, EU-AI-Act audit logging (resilient) to `audit-observability-service`.
+- ⚠️ With no provider API keys set, `call_llm` returns **simulated** responses; the "NEXUS
+  domain fine-tuned models" (`nexus-health-ft`, etc.) are placeholders — those models don't exist.
+
+---
+
+## 🌐 Apps (`apps/`)
+- ✅ **`api`** — real API gateway: reverse-proxy router (auth/media/notify/profile/family/content/
+  messaging), working RS256 ZeroTrust guard, rate limiter, tests. Its `modules/*` are README stubs.
+- 🟡 **`bff-gateway`** — aggregator + web/mobile controllers (some real code).
+- 🟡 **`realtime-gateway`** — websocket gateway + stream manager (some real code).
+- 🧱 **`web`, `mobile`, `admin`, `ar-vr-client`, `developer-portal`** — **empty. No frontend exists.**
+
+---
+
+## 🔧 Recent gap-closing fixes (this revision)
+
+Applied top-down from the audit; each verified with `tsc` + tests:
+
+1. **Kafka event backbone repaired.** 6 services had `@EventPattern` consumers that were never
+   subscribed (`main.ts` never called `connectMicroservice`/`startAllMicroservices`), so GDPR
+   cascades, profile seeding, and notification dispatch silently never fired. Now wired with unique
+   consumer groups: `user-profile`, `child-safety`, `content`, `messaging`, `social-relationship`,
+   `notification`. (Producer `.emit()` was already fine — NestJS 11 auto-connects.)
+2. **audit-compliance no longer fabricates clean results.** Scans that error report `error`; scans
+   that can't be evaluated report `inconclusive`; GDPR/HIPAA/PCI scanners corrected to real schema.
+3. **security-agent child-data interceptor** registered globally (was dead code).
+4. **media-file-service** download path made a fail-closed allowlist; scan errors → `scan_failed`.
+5. **child-safety age gate** made fail-closed.
+6. **messaging AI Twin drafting** wired to `ai-model-router` (real generation + resilient fallback).
+7. **user-profile avatar** integrity check made fail-closed.
+8. **notification providers** made transparently simulated (no more silent fake `success`).
+
+---
+
+## ⚠️ Known limitations / not yet real
+- **No frontend** (web/mobile/admin/AR-VR) and **no AI product** beyond the router.
+- **Real external delivery not wired:** email/SMS/push (need SMTP/Twilio/FCM creds — currently
+  transparently simulated); GeoIP for impossible-travel (currently hardcoded coordinates).
+- **"ZKP"** is symmetric AES-256-GCM, not a zero-knowledge proof (labeled as simulation in code).
+- **Thin test coverage:** unit tests mock the DB, so cross-service schema assumptions aren't
+  integration-tested; `auth-service` has no tests.
+- **CCPA/SOC2 compliance scans are inconclusive** until a marketing-activity signal and a persisted
+  roles/RBAC model exist.
+- Infra compose file is defined but running/health was not verified in this audit.
