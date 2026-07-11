@@ -52,8 +52,10 @@ export class AgeGateGuard implements CanActivate {
       return true;
     } catch (err: any) {
       if (err instanceof ForbiddenException) throw err;
-      // Graceful fallback for unit testing context
-      return true;
+      // Fail-CLOSED: if the user's age cannot be verified (e.g. profile service
+      // unreachable), deny access rather than allow it. For a child-safety age gate,
+      // allowing on error would let a minor bypass the gate by making verification fail.
+      throw new ForbiddenException('Age Gate: unable to verify age; access denied.');
     }
   }
 }
