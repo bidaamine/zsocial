@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ServiceUnavailableException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { UserProfile } from './entities/user-profile.entity';
@@ -72,28 +72,33 @@ export class ProfileService {
   }
 
   async updateAvatar(userId: string, avatarMediaId: string): Promise<UserProfile> {
-    // Zero-Trust verification: Ensure avatar file is clean and owned by user
+    // Zero-Trust verification: the avatar file must exist, be owned by this user, and
+    // have PASSED malware scanning before it can be linked to the profile.
+    let media: any[];
+    const queryRunner = this.dataSource.createQueryRunner();
     try {
-      const queryRunner = this.dataSource.createQueryRunner();
       await queryRunner.connect();
-
-      const media = await queryRunner.query(
-        `SELECT * FROM media_records WHERE id = $1 AND owner_id = $2`,
-        [avatarMediaId, userId]
+      media = await queryRunner.query(
+        `SELECT status FROM media_records WHERE id = $1 AND owner_id = $2`,
+        [avatarMediaId, userId],
       );
-
-      await queryRunner.release();
-
-      if (!media || media.length === 0) {
-        throw new BadRequestException('Avatar media ID not found or unauthorized');
-      }
-
-      if (media[0].status !== 'clean') {
-        throw new BadRequestException('Avatar media file is quarantined or infected');
-      }
     } catch (err: any) {
-      if (err instanceof BadRequestException) throw err;
-      this.logger.warn(`Skip media integrity check because tables are not set up: ${err.message}`);
+      // FAIL-CLOSED: if the integrity check cannot be performed, refuse to set the
+      // avatar rather than silently accepting an unverified file. Previously this was
+      // swallowed and the avatar saved anyway, defeating the check.
+      this.logger.error(`Avatar media integrity check could not be completed: ${err.message}`);
+      throw new ServiceUnavailableException(
+        'Could not verify avatar media integrity at this time. Please retry.',
+      );
+    } finally {
+      await queryRunner.release();
+    }
+
+    if (!media || media.length === 0) {
+      throw new BadRequestException('Avatar media ID not found or unauthorized');
+    }
+    if (media[0].status !== 'clean') {
+      throw new BadRequestException('Avatar media file is not verified clean (quarantined, unscanned, or infected)');
     }
 
     let profile = await this.profileRepo.findOne({ where: { userId } });
