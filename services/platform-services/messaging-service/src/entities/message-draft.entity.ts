@@ -17,6 +17,11 @@ export class MessageDraft {
   @Column({ name: 'confidence_score', type: 'float', default: 1.0 })
   confidenceScore!: number;
 
+  // True only when the content was actually produced by the AI model router.
+  // False means the router was unavailable and the raw sender intent was stored.
+  @Column({ name: 'ai_generated', default: false })
+  aiGenerated!: boolean;
+
   @Column({ name: 'reviewed_by_owner', default: false })
   reviewedByOwner!: boolean;
 

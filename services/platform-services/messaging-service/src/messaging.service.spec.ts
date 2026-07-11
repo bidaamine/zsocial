@@ -17,6 +17,11 @@ describe('MessagingService', () => {
     messagesDb = {};
     draftsDb = {};
 
+    // Default: the ai-model-router is "down" so createDraft exercises its resilient
+    // fallback path deterministically (no real network in unit tests). Individual
+    // tests override this to exercise the AI-generation path.
+    global.fetch = jest.fn().mockRejectedValue(new Error('router unreachable')) as any;
+
     messageRepoMock = {
       create: jest.fn().mockImplementation((dto) => ({
         id: 'msg-uuid-' + Math.random().toString(36).substr(2, 9),
@@ -102,14 +107,35 @@ describe('MessagingService', () => {
     expect(logs[0]?.messageLength).toBe(16);
   });
 
-  it('should create and retrieve AI twin drafts', async () => {
+  it('should fall back to raw intent (aiGenerated=false) when the model router is down', async () => {
+    // global.fetch is mocked to reject in beforeEach → resilient fallback path.
     const draft = await service.createDraft('user1', 'user2', 'Twin drafted response');
     expect(draft.id).toBeDefined();
     expect(draft.reviewedByOwner).toBe(false);
+    expect(draft.aiGenerated).toBe(false);
 
     const active = await service.getActiveDrafts('user1');
     expect(active.length).toBe(1);
     expect(active[0]?.draftedContent).toBe('Twin drafted response');
+  });
+
+  it('should draft via the ai-model-router when it is reachable (aiGenerated=true)', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ response_text: 'Hey! Great catching up — talk soon 😊', fallback_triggered: false }),
+    });
+
+    const draft = await service.createDraft('user1', 'user2', 'tell them it was nice to catch up');
+
+    // The stored draft is the AI-produced text, not the raw intent.
+    expect(draft.draftedContent).toBe('Hey! Great catching up — talk soon 😊');
+    expect(draft.aiGenerated).toBe(true);
+    expect(draft.confidenceScore).toBe(0.9);
+
+    // Verify it actually called the router's /route endpoint.
+    const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toContain('/route');
+    expect(init.method).toBe('POST');
   });
 
   it('should allow sending approved drafts as real encrypted messages', async () => {

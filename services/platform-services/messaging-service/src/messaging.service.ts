@@ -119,17 +119,98 @@ export class MessagingService {
 
   // --- AI Digital Twin Capabilities ---
 
-  async createDraft(ownerId: string, recipientId: string, draftedContent: string, confidenceScore = 0.85): Promise<MessageDraft> {
+  private readonly aiRouterUrl = process.env.AI_MODEL_ROUTER_URL || 'http://localhost:4703';
+
+  /**
+   * AI Digital Twin drafting. The `intent` is the sender's notes / desired gist; the
+   * twin expands it into a polished message by calling the ai-model-router service,
+   * which routes to a real LLM (or a simulated model when no provider keys are set).
+   *
+   * Resilient by design: if the router is unreachable, the raw intent is stored as the
+   * draft with aiGenerated=false and a low confidence, so the feature degrades
+   * gracefully instead of failing. `confidenceScore` here is only a caller-supplied
+   * floor used for the degraded path; the AI path derives confidence from the routing
+   * outcome instead of trusting a client-provided value.
+   */
+  async createDraft(ownerId: string, recipientId: string, intent: string, confidenceScore = 0.3): Promise<MessageDraft> {
     this.logger.log(`AI Digital Twin is drafting message on behalf of user ${ownerId} to recipient ${recipientId}`);
-    
+
+    let draftedContent = intent;
+    let aiGenerated = false;
+    let confidence = confidenceScore;
+
+    const ai = await this.generateDraftViaRouter(ownerId, intent);
+    if (ai) {
+      draftedContent = ai.text;
+      aiGenerated = true;
+      // Real signal: a draft produced only after the router failed over to a backup
+      // model is marked slightly less confident than a clean primary-model draft.
+      confidence = ai.fallbackTriggered ? 0.7 : 0.9;
+    } else {
+      this.logger.warn(
+        `AI model router unavailable; storing raw intent as draft for user ${ownerId} (aiGenerated=false).`,
+      );
+    }
+
     const draft = this.draftRepository.create({
       ownerId,
       recipientId,
       draftedContent,
-      confidenceScore,
+      confidenceScore: confidence,
+      aiGenerated,
       reviewedByOwner: false,
     });
     return this.draftRepository.save(draft);
+  }
+
+  /**
+   * Calls ai-model-router /route to draft a message. Returns null on any failure so
+   * the caller can fall back. Uses an AbortController timeout so a hung router never
+   * blocks the request path.
+   */
+  private async generateDraftViaRouter(
+    userId: string,
+    intent: string,
+  ): Promise<{ text: string; fallbackTriggered: boolean } | null> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    try {
+      const prompt =
+        'You are an AI digital twin drafting a short, friendly direct message on behalf of a user. ' +
+        'Reply with ONLY the message body — no preamble, no surrounding quotes. ' +
+        `The sender's intent / notes: "${intent}"`;
+
+      const res = await fetch(`${this.aiRouterUrl}/route`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          task_type: 'generation',
+          latency_priority: 'balanced',
+          privacy_sensitivity: 'sensitive',
+          cost_envelope: 'low_cost',
+          domain: 'general',
+          user_id: userId,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        throw new Error(`ai-model-router responded HTTP ${res.status}`);
+      }
+
+      const data: any = await res.json();
+      const text = (data?.response_text || '').trim();
+      if (!text) {
+        throw new Error('ai-model-router returned an empty response');
+      }
+      return { text, fallbackTriggered: !!data?.fallback_triggered };
+    } catch (err: any) {
+      this.logger.warn(`AI draft generation via model-router failed: ${err.message}`);
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async getActiveDrafts(ownerId: string): Promise<MessageDraft[]> {
