@@ -3,7 +3,7 @@
 Raw file management for the NEXUS / Zad Social platform: secure uploads, malware
 scanning, image/video processing, owner-scoped downloads, and GDPR erasure.
 
-- **Framework:** NestJS (TypeScript) · **Port:** `4107`
+- **Framework:** NestJS (TypeScript) · **Port:** `4107` · **Global prefix:** `/api`
 - **Object storage:** MinIO / S3-compatible (`@aws-sdk/client-s3`), bucket `nexus-media`
 - **Metadata:** PostgreSQL (TypeORM) — `media_records`
 - **Auth:** `MediaAccessGuard` (RS256 JWT verified against `auth-service`'s public key)
@@ -16,26 +16,26 @@ scanning, image thumbnailing, video metadata extraction, file lifecycle
 
 ## Upload → scan → download lifecycle
 
-1. **`POST /media/upload-url`** — creates a `media_records` row (`pending_upload`) and
+1. **`POST /api/media/upload-url`** — creates a `media_records` row (`pending_upload`) and
    returns a presigned PUT URL under `uploads/{userId}/{fileId}-{filename}`.
 2. Client uploads the bytes directly to MinIO/S3 using that URL.
-3. **`POST /media/process-upload/:fileId`** — downloads the object and scans it:
+3. **`POST /api/media/process-upload/:fileId`** — downloads the object and scans it:
    - **EICAR** malware signature → object deleted, status `quarantined`.
    - Clean → status `clean`; images get a 150×150 thumbnail (Jimp); MP4s get real
      duration parsed from `moov/mvhd` atoms; metadata stored as JSON.
    - **Scan could not run** (S3 error) → status `scan_failed` (**never** faked as clean).
-4. **`GET /media/download-url/:fileId`** — returns a presigned GET URL **only if the
+4. **`GET /api/media/download-url/:fileId`** — returns a presigned GET URL **only if the
    file is `clean`** and owned by the caller (fail-closed allowlist).
 
 ## HTTP API
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/media/upload-url` | ✅ | Reserve a file + presigned upload URL. Body: `filename` |
-| `POST` | `/media/process-upload/:fileId` | — | Trigger scan/processing after upload |
-| `GET` | `/media/download-url/:fileId` | ✅ (owner) | Presigned download URL — clean files only |
-| `GET` | `/media` | ✅ | List the caller's media (newest first) |
-| `DELETE` | `/media/:fileId` | ✅ (owner) | Delete file: S3 object + thumbnail + DB record |
+| `POST` | `/api/media/upload-url` | ✅ | Reserve a file + presigned upload URL. Body: `filename` |
+| `POST` | `/api/media/process-upload/:fileId` | — | Trigger scan/processing after upload |
+| `GET` | `/api/media/download-url/:fileId` | ✅ (owner) | Presigned download URL — clean files only |
+| `GET` | `/api/media` | ✅ | List the caller's media (newest first) |
+| `DELETE` | `/api/media/:fileId` | ✅ (owner) | Delete file: S3 object + thumbnail + DB record |
 
 ## Events (Kafka)
 
