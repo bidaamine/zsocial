@@ -60,6 +60,9 @@ Note: all coded services hardcode **PostgreSQL on `localhost:5434`, DB `nexus_db
   RS256 key management, refresh-token rotation, session listing/revocation, trusted-device log,
   new-device Kafka alert, lockout, TOTP MFA (otplib+qrcode), WebAuthn passkeys (@simplewebauthn),
   Google OAuth. Kafka consumer (`gdpr.user.deletion.requested`) is wired via hybrid `main.ts`.
+  **Fixed:** `AuthCoreModule` was missing `UserDevice` in `forFeature`, so the service could
+  never boot (DI failure) — now registered; register/login/public-key verified against real
+  Postgres. Also `req.user.sub` → `req.user.userId` in session/device routes.
   ⚠️ **No unit tests** — the most complex service is untested. Roles are a **JWT claim only**,
   not persisted to the DB.
 - ✅ **`user-profile-service`** — TypeORM `UserProfile`/`UserPreferences`, ZeroTrust scope guard,
@@ -167,8 +170,10 @@ Note: all coded services hardcode **PostgreSQL on `localhost:5434`, DB `nexus_db
 ---
 
 ## 🌐 Apps (`apps/`)
-- ✅ **`api`** — real API gateway: reverse-proxy router (auth/media/notify/profile/family/content/
-  messaging), working RS256 ZeroTrust guard, rate limiter, tests. Its `modules/*` are README stubs.
+- ✅ **`api`** — real API gateway (`:4000`): zero-trust reverse-proxy registry now routing
+  `auth, profile, family, content, messaging, media, notify, company, branding, hr` (RS256 guard +
+  rate limiter). **Fixed** stale `family`/`profile` ports. Its `modules/*` are README stubs.
+  Verified end-to-end: `gateway → company-service` with a real token returns data; no token → 401.
 - 🟡 **`bff-gateway`** — aggregator + web/mobile controllers (some real code).
 - 🟡 **`realtime-gateway`** — websocket gateway + stream manager (some real code).
 - 🧱 **`web`, `mobile`, `admin`, `ar-vr-client`, `developer-portal`** — **empty. No frontend exists.**
@@ -202,6 +207,12 @@ Applied top-down from the audit; each verified with `tsc` + tests:
     (should be `userId`); `security-agent` `/security` endpoints were unguarded (now `ZeroTrustGuard`).
 13. **Four new services built** (tests + real Postgres/Kafka verification): `family-service`,
     `company-service`, `branding-marketing-service`, `hr-talent-service`.
+14. **API gateway wired** for the new + personal services (company/branding/hr added;
+    family/profile ports fixed).
+15. **auth-service boot bug fixed** (`UserDevice` missing from `AuthCoreModule.forFeature`) — it
+    had never booted. Then ran a **full token-authenticated E2E** through the gateway and directly:
+    register → login → create company → create brand (cross-service membership check) → HR
+    bias-mitigated candidate ranking, all against real Postgres + Kafka + Redis.
 
 ---
 
