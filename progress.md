@@ -213,6 +213,11 @@ Applied top-down from the audit; each verified with `tsc` + tests:
     had never booted. Then ran a **full token-authenticated E2E** through the gateway and directly:
     register → login → create company → create brand (cross-service membership check) → HR
     bias-mitigated candidate ranking, all against real Postgres + Kafka + Redis.
+16. **Personal-side services verified through the gateway** (family, content, messaging, notify,
+    media) with a real token. Two issues found + fixed: `media-file-service` was missing
+    `setGlobalPrefix('api')` (routes were `/media/*` not `/api/media/*`), and the gateway was
+    running from **stale committed `dist/`** (old family port). **Untracked all 189 committed
+    `dist/` artifacts** (already gitignored) so build output no longer drifts from source.
 
 ---
 
