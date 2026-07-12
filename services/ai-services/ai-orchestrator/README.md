@@ -8,6 +8,9 @@ user's life — the PDF's "central nervous system … every other module connect
 - **Reasons through:** `ai-model-router` (every LLM call is routed, costed, audited)
 - **Persistence:** in-memory repository behind a swappable interface (see below)
 
+> 📖 **Full reference (run instructions, Docker, algorithms, every endpoint I/O, integration,
+> troubleshooting):** [DOCS.md](./DOCS.md).
+
 ## What it does (per the vision doc)
 
 1. **Real-time life-state model** — synthesises the latest signal per metric (heart rate,
