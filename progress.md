@@ -15,14 +15,14 @@ earlier version that listed aspirational scope as if delivered.
 | Area | Planned | Has real code | Empty scaffold |
 |---|---|---|---|
 | Platform services | 32 | **13** | 19 |
-| AI services | 17 | **1** (`ai-model-router`) | 16 |
+| AI services | 17 | **2** (`ai-model-router`, `ai-orchestrator`) | 15 |
 | Apps | 8 | **3** (backend gateways) | 5 |
-| **Total services** | 49 | **14** | 35 |
+| **Total services** | 49 | **15** | 34 |
 
 **Two things to keep front-of-mind:**
-- **The AI layer is essentially unbuilt.** Of 17 AI services, only `ai-model-router` has code. The
-  flagship **AI Life Orchestrator** (`ai-orchestrator`) and every domain AI (health, education,
-  emotion, digital-twin, memory, predictive-crisis, etc.) are empty directories.
+- **The AI layer is early.** Of 17 AI services, only `ai-model-router` and the flagship
+  `ai-orchestrator` (AI Life Orchestrator) have code. Every domain AI (health, education,
+  emotion, digital-twin, memory, predictive-crisis, etc.) is still an empty directory.
 - **There is no end-user frontend.** `apps/web` and `apps/mobile` are empty. Only backend
   gateways (`apps/api`, `apps/bff-gateway`, `apps/realtime-gateway`) contain code. The entire
   UX/UI design system in the PDF is not started.
@@ -133,11 +133,17 @@ Note: all coded services hardcode **PostgreSQL on `localhost:5434`, DB `nexus_db
 
 - ✅ **`ai-model-router`** (Python / FastAPI, 12 files, **21 passing tests**) — the most complete
   and best-tested component in the repo. See dedicated section below.
-- 🧱 **All 16 other AI services have no code**, including the ones the vision is built around:
-  `ai-orchestrator` (the "AI Life Orchestrator"), `ai-health`, `ai-education`, `ai-emotion`,
-  `ai-digital-twin`, `ai-memory`, `ai-predictive-crisis`, `ai-collective-intelligence`,
-  `ai-family-safety`, `ai-fitness-life`, `ai-finance-business-growth`, `ai-hr-talent`,
-  `ai-marketing`, `ai-operations`, `ai-translator-cultural`, `ai-immersive-reality`.
+- ✅ **`ai-orchestrator`** (Python / FastAPI, **16 passing tests**) — the AI Life Orchestrator.
+  Real-time life-state model (6 probabilistic dimensions from signals), priority engine with
+  stress-protected deferral, cross-domain conflict resolution, 3-horizon decision engine,
+  router-backed daily briefing (template fallback), proactive action engine with an append-only
+  log + 24h override, and a background 15-min inference loop. Reasons through `ai-model-router`.
+  In-memory persistence today (swappable repository interface).
+- 🧱 **The 15 other AI services have no code**, including the domain agents the orchestrator is
+  built to coordinate: `ai-health`, `ai-education`, `ai-emotion`, `ai-digital-twin`, `ai-memory`,
+  `ai-predictive-crisis`, `ai-collective-intelligence`, `ai-family-safety`, `ai-fitness-life`,
+  `ai-finance-business-growth`, `ai-hr-talent`, `ai-marketing`, `ai-operations`,
+  `ai-translator-cultural`, `ai-immersive-reality`.
 
 ### `ai-model-router` — detail
 - ✅ 4-axis classifier (privacy → domain fine-tuned → latency → task/cost table).
