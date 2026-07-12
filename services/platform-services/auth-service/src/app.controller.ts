@@ -70,13 +70,13 @@ export class AppController {
   @UseGuards(JwtAuthGuard)
   @Get('sessions')
   async getSessions(@Req() req: any) {
-    return this.authService.getActiveSessions(req.user.sub);
+    return this.authService.getActiveSessions(req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete('sessions/:id')
   async revokeSession(@Req() req: any, @Param('id') sessionId: string) {
-    return this.authService.revokeSession(req.user.sub, sessionId);
+    return this.authService.revokeSession(req.user.userId, sessionId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -85,13 +85,13 @@ export class AppController {
     if (!currentRefreshToken) {
       throw new BadRequestException('Current refresh token is required');
     }
-    return this.authService.revokeOtherSessions(req.user.sub, currentRefreshToken);
+    return this.authService.revokeOtherSessions(req.user.userId, currentRefreshToken);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('devices')
   async getDevices(@Req() req: any) {
-    return this.authService.getTrustedDevices(req.user.sub);
+    return this.authService.getTrustedDevices(req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -101,7 +101,7 @@ export class AppController {
     @Param('id') deviceId: string,
     @Body('isTrusted') isTrusted: boolean,
   ) {
-    return this.authService.toggleDeviceTrust(req.user.sub, deviceId, isTrusted);
+    return this.authService.toggleDeviceTrust(req.user.userId, deviceId, isTrusted);
   }
 
   @Get('status')
