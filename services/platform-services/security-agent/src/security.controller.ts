@@ -1,7 +1,11 @@
-import { Controller, Post, Body, Headers, Ip, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, Headers, Ip, BadRequestException, UseGuards } from '@nestjs/common';
 import { ThreatDetectionService } from './threat-detection.service';
 import { ZkpService } from './zkp.service';
+import { ZeroTrustGuard } from './zero-trust.guard';
 
+// Zero-Trust by default: every endpoint must present a valid RS256 token. The child
+// encrypt/decrypt routes handle minor cleartext and must never be reachable unauthenticated.
+@UseGuards(ZeroTrustGuard)
 @Controller('security')
 export class SecurityController {
   constructor(
