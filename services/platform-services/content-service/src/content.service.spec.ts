@@ -121,6 +121,17 @@ describe('ContentService', () => {
     expect(post.id).toBeDefined();
     expect(post.authorId).toBe('user1');
     expect(post.title).toBe('Hello Title');
+    expect(post.type).toBe('post'); // defaults to short-form post
+  });
+
+  it('should support article type and list an author\'s content', async () => {
+    const article = await service.createPost('user1', 'My Article', 'Long form body', [], 'article');
+    expect(article.type).toBe('article');
+
+    await service.createPost('user1', 'A status', 'short body');
+
+    const authored = await service.listPostsByAuthor('user1');
+    expect(authored.length).toBe(2);
   });
 
   it('should update a post if owner', async () => {

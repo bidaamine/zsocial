@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ContentController } from './content.controller';
+import { FeedController } from './feed.controller';
 import { ContentService } from './content.service';
 import { Post } from './entities/post.entity';
 import { Comment } from './entities/comment.entity';
@@ -22,7 +23,7 @@ import { PostgresModule } from '@nexus/core-infra';
     }),
     TypeOrmModule.forFeature([Post, Comment, Like]),
   ],
-  controllers: [ContentController],
+  controllers: [ContentController, FeedController],
   providers: [
     ContentService,
     ZeroTrustGuard,

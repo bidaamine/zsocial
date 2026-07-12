@@ -11,6 +11,11 @@ export class Post {
   @Column()
   title!: string;
 
+  // 'post' = short-form status update; 'article' = long-form content.
+  // Supports the "Post and article management" requirement.
+  @Column({ default: 'post' })
+  type!: string;
+
   @Column({ type: 'text' })
   content!: string;
 

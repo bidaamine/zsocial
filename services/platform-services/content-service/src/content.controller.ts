@@ -14,8 +14,25 @@ export class ContentController {
     @Body('title') title: string,
     @Body('content') content: string,
     @Body('tags') tags?: string[],
+    @Body('type') type?: 'post' | 'article',
   ) {
-    return this.contentService.createPost(req.user.sub, title, content, tags);
+    return this.contentService.createPost(req.user.sub, title, content, tags, type);
+  }
+
+  // NB: declared BEFORE @Get(':id') so 'author' is not captured as a post id.
+  @Get('author/:authorId')
+  async getPostsByAuthor(
+    @Param('authorId') authorId: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+    @Query('type') type?: 'post' | 'article',
+  ) {
+    return this.contentService.listPostsByAuthor(
+      authorId,
+      limit ? Number(limit) : undefined,
+      offset ? Number(offset) : undefined,
+      type,
+    );
   }
 
   @Get(':id')
@@ -68,22 +85,6 @@ export class ContentController {
   @Post(':id/like')
   async toggleLike(@Param('id') id: string, @Request() req: any) {
     return this.contentService.toggleLike(id, req.user.sub);
-  }
-
-  @UseGuards(ZeroTrustGuard)
-  @Get('../feed') // Maps /feed relative route cleanly or controller path customization
-  async getFeed(
-    @Request() req: any,
-    @Query('limit') limit?: number,
-    @Query('offset') offset?: number,
-  ) {
-    const token = req.headers.authorization;
-    return this.contentService.generateFeed(
-      req.user.sub,
-      limit ? Number(limit) : undefined,
-      offset ? Number(offset) : undefined,
-      token,
-    );
   }
 
   // --- Kafka consumer for GDPR deletion ---

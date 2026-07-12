@@ -19,15 +19,44 @@ export class ContentService {
     private readonly likeRepository: Repository<Like>,
   ) {}
 
-  async createPost(authorId: string, title: string, content: string, tags?: string[]): Promise<Post> {
-    this.logger.log(`Creating post for user ${authorId}`);
+  async createPost(
+    authorId: string,
+    title: string,
+    content: string,
+    tags?: string[],
+    type: 'post' | 'article' = 'post',
+  ): Promise<Post> {
+    this.logger.log(`Creating ${type} for user ${authorId}`);
     const post = this.postRepository.create({
       authorId,
       title,
       content,
+      type: type === 'article' ? 'article' : 'post',
       tags: tags ? JSON.stringify(tags) : undefined,
     });
     return this.postRepository.save(post);
+  }
+
+  /**
+   * Lists a single author's posts/articles (e.g. for a profile page), newest first,
+   * optionally filtered by type. Paginated.
+   */
+  async listPostsByAuthor(
+    authorId: string,
+    limit = 20,
+    offset = 0,
+    type?: 'post' | 'article',
+  ): Promise<Post[]> {
+    const where: Record<string, unknown> = { authorId };
+    if (type === 'post' || type === 'article') {
+      where.type = type;
+    }
+    return this.postRepository.find({
+      where,
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
+    });
   }
 
   async getPost(id: string): Promise<Post> {
