@@ -1,1 +1,0 @@
-{"version":3,"file":"web-dashboard.controller.d.ts","sourceRoot":"","sources":["../src/web-dashboard.controller.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,iBAAiB,EAAE,MAAM,sBAAsB,CAAC;AAEzD,qBACa,sBAAsB;IACrB,OAAO,CAAC,UAAU;gBAAV,UAAU,EAAE,iBAAiB;IAG3C,YAAY,CACC,MAAM,EAAE,MAAM,EACL,UAAU,EAAE,MAAM;;;;;;;;CAI/C"}
