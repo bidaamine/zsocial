@@ -37,4 +37,11 @@ describe('GatewayRouterService', () => {
     const req = { url: '/api/route/unknown/test', method: 'GET', body: {}, headers: {} };
     await expect(service.proxy('unknown', req)).rejects.toThrow(HttpException);
   });
+
+  it('should route the corporate services (company, branding, hr) and family', async () => {
+    for (const svc of ['company', 'branding', 'hr', 'family']) {
+      const req = { url: `/api/route/${svc}/api/x`, method: 'GET', body: {}, headers: {} };
+      await expect(service.proxy(svc, req)).resolves.toBe('mockData'); // registered, not 404
+    }
+  });
 });

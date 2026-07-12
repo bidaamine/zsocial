@@ -13,10 +13,14 @@ export class GatewayRouterService {
       'auth': process.env.AUTH_SERVICE_URL || 'http://localhost:4100',
       'media': process.env.MEDIA_SERVICE_URL || 'http://localhost:4107',
       'notify': process.env.NOTIFY_SERVICE_URL || 'http://localhost:4105',
-      'profile': process.env.PROFILE_SERVICE_URL || 'http://localhost:4001',
-      'family': process.env.FAMILY_SERVICE_URL || 'http://localhost:4002',
+      'profile': process.env.PROFILE_SERVICE_URL || 'http://localhost:4103',
+      'family': process.env.FAMILY_SERVICE_URL || 'http://localhost:4101',
       'content': process.env.CONTENT_SERVICE_URL || 'http://localhost:4112',
       'messaging': process.env.MESSAGING_SERVICE_URL || 'http://localhost:4113',
+      // Corporate services
+      'company': process.env.COMPANY_SERVICE_URL || 'http://localhost:4120',
+      'branding': process.env.BRANDING_SERVICE_URL || 'http://localhost:4121',
+      'hr': process.env.HR_TALENT_SERVICE_URL || 'http://localhost:4122',
     };
     return registry[serviceName];
   }
