@@ -42,6 +42,22 @@ export class ChildSafetyController {
     return this.safetyService.getIncidentsForChild(childId, req.user.sub, req.user.roles);
   }
 
+  // --- Longitudinal emotional wellbeing monitoring ---
+  @UseGuards(ZeroTrustGuard)
+  @Post('wellbeing/:childId')
+  async recordWellbeing(
+    @Param('childId') childId: string,
+    @Body() signals: { peerInteractions?: number; lateNightMinutes?: number; socialWithdrawal?: number; contentPositivity?: number },
+  ) {
+    return this.safetyService.recordWellbeing(childId, signals);
+  }
+
+  @UseGuards(ZeroTrustGuard)
+  @Get('wellbeing/:childId')
+  async getWellbeing(@Param('childId') childId: string, @Request() req: any) {
+    return this.safetyService.getWellbeingTrend(childId, req.user.sub, req.user.roles);
+  }
+
   // --- Age-Gated Resource Route ---
   @UseGuards(ZeroTrustGuard, AgeGateGuard)
   @MinAge(18)

@@ -4,6 +4,7 @@ import { ChildSafetyController } from './child-safety.controller';
 import { ChildSafetyService } from './child-safety.service';
 import { ParentDelegate } from './entities/parent-delegate.entity';
 import { SafetyIncident } from './entities/safety-incident.entity';
+import { WellbeingSnapshot } from './entities/wellbeing-snapshot.entity';
 import { ZeroTrustGuard } from './zero-trust.guard';
 import { AgeGateGuard } from './age-gate.guard';
 import { PostgresModule, KafkaModule } from '@nexus/core-infra';
@@ -20,7 +21,7 @@ import { PostgresModule, KafkaModule } from '@nexus/core-infra';
       autoLoadEntities: true,
       synchronize: true, // Dev-only
     }),
-    TypeOrmModule.forFeature([ParentDelegate, SafetyIncident]),
+    TypeOrmModule.forFeature([ParentDelegate, SafetyIncident, WellbeingSnapshot]),
     KafkaModule.registerClient('SAFETY_CLIENT', ['localhost:9092'], 'child-safety-service')
   ],
   controllers: [ChildSafetyController],

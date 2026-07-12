@@ -10,7 +10,7 @@ export class SafetyIncident {
   childId!: string;
 
   @Column({ name: 'incident_type' })
-  incidentType!: 'cyberbullying' | 'grooming_risk' | 'age_gate_violation';
+  incidentType!: 'cyberbullying' | 'grooming_risk' | 'age_gate_violation' | 'wellbeing_concern';
 
   @Column({ default: 'MEDIUM' })
   severity!: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';

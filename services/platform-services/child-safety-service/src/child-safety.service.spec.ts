@@ -3,15 +3,19 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ChildSafetyService } from './child-safety.service';
 import { ParentDelegate } from './entities/parent-delegate.entity';
 import { SafetyIncident } from './entities/safety-incident.entity';
+import { WellbeingSnapshot } from './entities/wellbeing-snapshot.entity';
 
 describe('ChildSafetyService', () => {
   let service: ChildSafetyService;
   let delegateDb: Record<string, ParentDelegate>;
   let incidentDb: Record<string, SafetyIncident>;
+  let wellbeingDb: any[];
+  let kafkaClientMock: any;
 
   beforeEach(async () => {
     delegateDb = {};
     incidentDb = {};
+    wellbeingDb = [];
 
     const delegateRepositoryMock = {
       create: jest.fn().mockImplementation((dto) => dto),
@@ -49,7 +53,20 @@ describe('ChildSafetyService', () => {
       delete: jest.fn().mockResolvedValue({ affected: 1 }),
     };
 
-    const kafkaClientMock = {
+    const wellbeingRepositoryMock = {
+      create: jest.fn().mockImplementation((dto) => dto),
+      save: jest.fn().mockImplementation((record) => {
+        const saved = { id: record.id || `w-${wellbeingDb.length}`, ...record, createdAt: new Date() };
+        wellbeingDb.push(saved);
+        return Promise.resolve(saved);
+      }),
+      find: jest.fn().mockImplementation(({ where: { childId } }) =>
+        Promise.resolve(wellbeingDb.filter((w) => w.childId === childId).slice().reverse()),
+      ),
+      delete: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
+
+    kafkaClientMock = {
       emit: jest.fn(),
     };
 
@@ -58,6 +75,7 @@ describe('ChildSafetyService', () => {
         ChildSafetyService,
         { provide: getRepositoryToken(ParentDelegate), useValue: delegateRepositoryMock },
         { provide: getRepositoryToken(SafetyIncident), useValue: incidentRepositoryMock },
+        { provide: getRepositoryToken(WellbeingSnapshot), useValue: wellbeingRepositoryMock },
         { provide: 'SAFETY_CLIENT', useValue: kafkaClientMock },
       ],
     }).compile();
@@ -96,5 +114,32 @@ describe('ChildSafetyService', () => {
     const list = await service.getIncidentsForChild('child3', 'parent3', []);
     expect(list.length).toBe(1);
     expect(list[0]?.incidentType).toBe('cyberbullying');
+  });
+
+  it('should treat the first wellbeing snapshots as baseline (no concern)', async () => {
+    const r = await service.recordWellbeing('cw1', {
+      peerInteractions: 10, lateNightMinutes: 10, socialWithdrawal: 0.1, contentPositivity: 0.8,
+    });
+    expect(r.trend).toBe('baseline');
+    expect(r.concern).toBe(false);
+  });
+
+  it('should raise a wellbeing_concern on a sudden decline and alert the parent', async () => {
+    await service.registerDelegate('pw', 'cw2');
+    // Two healthy baseline snapshots.
+    await service.recordWellbeing('cw2', { peerInteractions: 12, lateNightMinutes: 5, socialWithdrawal: 0.05, contentPositivity: 0.9 });
+    await service.recordWellbeing('cw2', { peerInteractions: 11, lateNightMinutes: 8, socialWithdrawal: 0.1, contentPositivity: 0.85 });
+
+    // Sudden decline: withdrawal spikes, late-night spikes, peers drop.
+    const r = await service.recordWellbeing('cw2', { peerInteractions: 0, lateNightMinutes: 110, socialWithdrawal: 0.9, contentPositivity: 0.1 });
+
+    expect(r.concern).toBe(true);
+    expect(r.trend).toBe('concern');
+    expect(r.incident.incidentType).toBe('wellbeing_concern');
+    expect(r.incident.severity).toBe('HIGH');
+
+    const topics = kafkaClientMock.emit.mock.calls.map((c: any[]) => c[0]);
+    expect(topics).toContain('child.wellbeing.checkin');   // gentle check-in to the child
+    expect(topics).toContain('dispatch_notification');     // contextual parent alert
   });
 });
