@@ -6,6 +6,7 @@ import { EmailProvider } from './providers/email.provider';
 import { PushProvider } from './providers/push.provider';
 import { SmsProvider } from './providers/sms.provider';
 import { Notification } from './entities/notification.entity';
+import { NotificationPreference } from './entities/notification-preference.entity';
 import { PostgresModule, KafkaModule } from '@nexus/core-infra';
 
 @Module({
@@ -20,7 +21,7 @@ import { PostgresModule, KafkaModule } from '@nexus/core-infra';
       autoLoadEntities: true,
       synchronize: true, // Dev-only
     }),
-    TypeOrmModule.forFeature([Notification]),
+    TypeOrmModule.forFeature([Notification, NotificationPreference]),
     KafkaModule.registerClient('NOTIFICATION_CLIENT', ['localhost:9092'], 'notification-service')
   ],
   controllers: [NotificationController],

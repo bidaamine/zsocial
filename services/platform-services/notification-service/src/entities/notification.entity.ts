@@ -15,14 +15,23 @@ export class Notification {
   @Column()
   recipient!: string;
 
+  // Notification Intelligence hierarchy (PDF): ai_action, alert, insight, info.
+  @Column({ default: 'info' })
+  category!: 'ai_action' | 'alert' | 'insight' | 'info';
+
+  // True urgency. Only 'critical' (family-safety / medical) passes during focus mode.
+  @Column({ default: 'normal' })
+  priority!: 'critical' | 'high' | 'normal' | 'low';
+
   @Column()
   title!: string;
 
   @Column({ type: 'text' })
   body!: string;
 
+  // 'held' = intelligently filtered (e.g. focus mode) and not yet delivered.
   @Column({ default: 'queued' })
-  status!: 'queued' | 'sent' | 'failed';
+  status!: 'queued' | 'sent' | 'failed' | 'held';
 
   @Column({ name: 'retry_count', default: 0 })
   retryCount!: number;
