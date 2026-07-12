@@ -93,9 +93,14 @@ Note: all coded services hardcode **PostgreSQL on `localhost:5434`, DB `nexus_db
 ### Data & Content
 - 🟡 **`media-file-service`** — real EICAR malware stream scan, Jimp thumbnails, hand-rolled MP4
   atom parsing. **Fixed:** download path is now a **fail-closed allowlist** (only `clean` files
-  served); a scan that errors is marked `scan_failed`, never faked as `clean`.
-- ✅ **`content-service`** — posts/comments/likes, basic feed generation (HTTP to social service),
-  ZeroTrust guards. **Fixed:** GDPR Kafka consumer now wired (was dead).
+  served); a scan that errors is marked `scan_failed`, never faked as `clean`. **Added:** list-my-media
+  (`GET /media`), delete (`DELETE /media/:id`, owner-checked, S3+thumbnail+DB), and a **GDPR
+  right-to-erasure cascade** (`gdpr.user.deletion.requested` consumer, now wired in hybrid mode) —
+  previously user media was never purged on account deletion.
+- ✅ **`content-service`** — posts/comments/likes, feed generation (HTTP to social service),
+  ZeroTrust guards. **Fixed:** GDPR Kafka consumer now wired (was dead); the broken `@Get('../feed')`
+  route replaced with a dedicated `/feed` controller. **Added:** post/**article** type discriminator
+  and author post-listing with pagination (`GET /posts/author/:id`).
 - 🟡 **`messaging-service`** — real **AES-256-GCM** message encryption. **Fixed:** GDPR Kafka
   consumer wired; **"AI Twin Message Drafting" now genuinely calls `ai-model-router`** to generate
   drafts (resilient fallback to raw intent when the router is down; `aiGenerated` flag records
