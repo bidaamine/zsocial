@@ -14,10 +14,10 @@ earlier version that listed aspirational scope as if delivered.
 
 | Area | Planned | Has real code | Empty scaffold |
 |---|---|---|---|
-| Platform services | 32 | **13** | 19 |
+| Platform services | 32 | **17** | 15 |
 | AI services | 17 | **2** (`ai-model-router`, `ai-orchestrator`) | 15 |
 | Apps | 8 | **3** (backend gateways) | 5 |
-| **Total services** | 49 | **15** | 34 |
+| **Total services** | 49 | **19** | 30 |
 
 **Two things to keep front-of-mind:**
 - **The AI layer is early.** Of 17 AI services, only `ai-model-router` and the flagship
@@ -111,15 +111,26 @@ Note: all coded services hardcode **PostgreSQL on `localhost:5434`, DB `nexus_db
 - ✅ **`social-relationship-service`** — TypeORM `UserConnection`, real Neo4j `MERGE`/`DETACH DELETE`
   sync, real Cypher mutual-connections / friends-of-friends. **Fixed:** GDPR Kafka consumer wired.
 - 🟡 **`notification-service`** — real template engine, channel routing, retry queue. **Fixed:**
-  the `dispatch_notification` Kafka consumer (its **primary** entrypoint) is now wired; the
-  email/SMS/push providers now **transparently declare `simulated: true`** (no real SMTP/Twilio/FCM
-  transport is wired — they log a WARN instead of pretending a real send). Notifications record a
-  `simulated` flag so history is honest.
-- 🧱 **`family-service`** — no code.
+  the `dispatch_notification` Kafka consumer (its **primary** entrypoint) is now wired; providers
+  **transparently declare `simulated: true`** (no real SMTP/Twilio/FCM). **Added: Notification
+  Intelligence** — category/priority classification, focus-mode gating (only critical family-safety/
+  medical pass; the rest are held + released), and a Notification Health Score.
+- ✅ **`family-service`** — **Family Hub backend** (new). Household management with guardian/parent/
+  child/member roles + authority checks, milestones, a unified dashboard, and the **Family Harmony
+  Engine** (elevated family stress, communication decline, milestone support → guardian alerts).
+  RS256 guard, GDPR consumer. 12 tests; verified against real Postgres + Kafka.
 
-### Business & Growth — 🧱 all scaffold only (no code)
-`analytics-service`, `billing-service`, `branding-marketing-service`, `business-growth-service`,
-`company-service`, `hr-talent-service`, `marketplace-service`, `personal-finance-service`.
+### Business & Growth — Corporate MVP
+- ✅ **`company-service`** (new, port 4120) — multi-tenant B2B companies (unique slug), membership
+  with owner/admin/manager/member roles, and a nested department org chart. GDPR consumer. 5 tests.
+- ✅ **`branding-marketing-service`** (new, port 4121) — brand kits + AI campaign engine; brand/
+  campaign generation via `ai-model-router` (template fallback); fail-closed company-membership
+  isolation. 6 tests.
+- ✅ **`hr-talent-service`** (new, port 4122) — job postings + anonymised candidate pipeline with
+  **bias-mitigated, explainable screening** (no identity fields; capability-only scoring with a
+  per-competency breakdown). 7 tests.
+- 🧱 Still scaffold-only: `analytics-service`, `billing-service`, `business-growth-service`,
+  `marketplace-service`, `personal-finance-service`.
 
 ### Specialized Domains — 🧱 all scaffold only
 `education-service`, `fitness-life-service`, `health-service`.
@@ -181,6 +192,16 @@ Applied top-down from the audit; each verified with `tsc` + tests:
 6. **messaging AI Twin drafting** wired to `ai-model-router` (real generation + resilient fallback).
 7. **user-profile avatar** integrity check made fail-closed.
 8. **notification providers** made transparently simulated (no more silent fake `success`).
+
+### Later round — new features, docs, more fixes
+9. **ai-orchestrator** built + full `DOCS.md` + `Dockerfile`.
+10. **Notification Intelligence** (priority/focus filtering + health score) and **child-safety
+    longitudinal wellbeing monitoring** added (PDF Modules).
+11. **Accurate READMEs** written for all built services (replacing "no code" placeholders).
+12. **Two real bugs fixed** found during the doc pass: `auth` session routes read `req.user.sub`
+    (should be `userId`); `security-agent` `/security` endpoints were unguarded (now `ZeroTrustGuard`).
+13. **Four new services built** (tests + real Postgres/Kafka verification): `family-service`,
+    `company-service`, `branding-marketing-service`, `hr-talent-service`.
 
 ---
 
