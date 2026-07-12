@@ -70,6 +70,57 @@ export class StorageProviderService {
     return this.minioService.getPresignedDownloadUrl(record.s3Key);
   }
 
+  /** Lists all media owned by a user, newest first (for a "my files" view). */
+  async listUserMedia(userId: string): Promise<MediaRecord[]> {
+    return this.mediaRepository.find({
+      where: { ownerId: userId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /** Deletes a single file (owner-checked): removes the S3 object, its thumbnail, and the DB record. */
+  async deleteMedia(fileId: string, userId: string): Promise<void> {
+    const record = await this.mediaRepository.findOne({ where: { id: fileId } });
+    if (!record) {
+      throw new NotFoundException(`File record ${fileId} not found`);
+    }
+    if (record.ownerId !== userId) {
+      throw new ForbiddenException('Access denied: You do not own this file.');
+    }
+    await this.purgeRecord(record);
+  }
+
+  /**
+   * GDPR right-to-erasure cascade: purges every media object and record owned by the
+   * user from both S3 and the database. Returns the number of records erased.
+   * Previously media was never purged on user deletion — a compliance gap.
+   */
+  async deleteUserData(userId: string): Promise<number> {
+    this.logger.log(`GDPR Cascade: purging all media for user ${userId}`);
+    const records = await this.mediaRepository.find({ where: { ownerId: userId } });
+    for (const record of records) {
+      await this.purgeRecord(record);
+    }
+    this.logger.log(`GDPR Cascade: erased ${records.length} media record(s) for user ${userId}`);
+    return records.length;
+  }
+
+  /** Best-effort S3 object + thumbnail removal, then hard-delete of the DB record. */
+  private async purgeRecord(record: MediaRecord): Promise<void> {
+    try {
+      const s3Client = this.minioService.getClient();
+      await s3Client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: record.s3Key }));
+      if (record.thumbnailS3Key) {
+        await s3Client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: record.thumbnailS3Key }));
+      }
+    } catch (err: any) {
+      // Still remove the DB record so the user's data mapping is erased even if the
+      // object store is briefly unavailable; log loudly so the orphan can be swept.
+      this.logger.error(`Failed to delete S3 object(s) for media ${record.id}: ${err.message}`);
+    }
+    await this.mediaRepository.remove(record);
+  }
+
   /**
    * Called via REST or Kafka when upload triggers processing
    */

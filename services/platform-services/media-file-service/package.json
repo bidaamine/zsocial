@@ -16,6 +16,7 @@
     "@aws-sdk/client-s3": "^3.500.0",
     "@nestjs/common": "^11.1.27",
     "@nestjs/core": "^11.1.27",
+    "@nestjs/microservices": "^11.1.27",
     "@nestjs/platform-express": "^11.1.27",
     "@nestjs/typeorm": "^11.0.0",
     "@nexus/api-contracts": "workspace:*",
